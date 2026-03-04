@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.*;
 
 /**
@@ -62,18 +63,22 @@ public class ReviewService {
                 // 每位申请人独立 session — 保证规则条件隔离
                 baos.reset(); // 每人单独捕获，便于从日志解析命中规则名
                 RuleEngine re = OntologyRuleVersionManager.getEngine("unemployment", RULE_VERSION);
-                re.session().insert(d.person);
-                re.session().insert(d.ins);
-                re.session().insert(d.unit);
-                re.session().insert(d.reg);
-                re.session().insert(d.mat);
-                re.session().insert(d.bank);
+                re.session().insert(d.policy());
+                re.session().insert(d.person());
+                for (InsuranceRecord rec : d.insuranceList()) {
+                    re.session().insert(rec);
+                }
+                re.session().insert(d.timeline());
+                re.session().insert(d.unit());
+                re.session().insert(d.reg());
+                re.session().insert(d.mat());
+                re.session().insert(d.bank());
                 re.fire();
 
                 // 从本人的 stdout 解析命中的规则情形
                 String personLog = baos.toString(StandardCharsets.UTF_8);
                 allLogs.append(personLog);
-                String detectedScenario = parseScenarioFromLog(personLog, d.scenario);
+                String detectedScenario = parseScenarioFromLog(personLog, d.scenario());
 
                 // 提取本人结论
                 for (Object o : re.session().getObjects()) {
@@ -85,14 +90,14 @@ public class ReviewService {
                                 .replace("-ELIG", "");
                         EligibilityResultDto dto = new EligibilityResultDto();
                         dto.setApplicantId(pid);
-                        dto.setApplicantName(d.person.getName());
+                        dto.setApplicantName(d.person().getName());
                         dto.setApproved(approved);
                         dto.setRejectReason(er.getRejectReason());
                         dto.setScenario(detectedScenario);
                         if (approved) {
-                            dto.setBankName(d.bank.getBankName());
-                            dto.setAccountNo(d.bank.getAccountNo());
-                            dto.setAccountName(d.bank.getAccountName());
+                            dto.setBankName(d.bank().getBankName());
+                            dto.setAccountNo(d.bank().getAccountNo());
+                            dto.setAccountName(d.bank().getAccountName());
                         }
                         results.add(dto);
                     }
@@ -117,13 +122,9 @@ public class ReviewService {
     }
 
     /**
-     * 将前端提交的单条申请人数据转换为 ApplicantData 并执行审查。
+     * 将前端提交的单条/多条申请人数据转换为 ApplicantData 并执行审查。
      */
     public ReviewResponse submitApplicant(ApplicantRequest req) {
-        InsuranceRecord.StopReason stopReason;
-        try { stopReason = InsuranceRecord.StopReason.valueOf(req.getStopReason()); }
-        catch (Exception e) { stopReason = InsuranceRecord.StopReason.VOLUNTARY_RESIGN; }
-
         EmployerUnit.UnitType unitType;
         try { unitType = EmployerUnit.UnitType.valueOf(req.getUnitType()); }
         catch (Exception e) { unitType = EmployerUnit.UnitType.ENTERPRISE; }
@@ -134,17 +135,68 @@ public class ReviewService {
 
         String scenario = req.getScenario() != null && !req.getScenario().isBlank()
                 ? req.getScenario() : "custom";
-        String creditCode = req.getUnitCreditCode() != null ? req.getUnitCreditCode() : "";
-        String regDate = req.getRegistrationDate() != null ? req.getRegistrationDate() : "";
-        String termDate = req.getTerminationDate() != null ? req.getTerminationDate() : "";
-        String issuingUnit = req.getIssuingUnit() != null ? req.getIssuingUnit() : "";
+        String creditCode    = req.getUnitCreditCode()    != null ? req.getUnitCreditCode()    : "";
+        String regDate       = req.getRegistrationDate()  != null ? req.getRegistrationDate()  : "";
+        String termDate      = req.getTerminationDate()   != null ? req.getTerminationDate()   : "";
+        String issuingUnit   = req.getIssuingUnit()       != null ? req.getIssuingUnit()       : "";
+
+        // ── 构建参保记录列表（多条优先，单条向后兼容） ────────────
+        List<InsuranceRecord> insuranceList;
+        if (req.getInsuranceRecords() != null && !req.getInsuranceRecords().isEmpty()) {
+            insuranceList = new ArrayList<>();
+            int idx = 0;
+            for (ApplicantRequest.InsuranceRecordItem item : req.getInsuranceRecords()) {
+                InsuranceRecord.StopReason sr;
+                try { sr = InsuranceRecord.StopReason.valueOf(item.getStopReason()); }
+                catch (Exception e) { sr = InsuranceRecord.StopReason.VOLUNTARY_RESIGN; }
+
+                LocalDate stopDate = LocalDate.now();
+                if (item.getStopDate() != null && !item.getStopDate().isBlank()) {
+                    try { stopDate = LocalDate.parse(item.getStopDate()); } catch (Exception ignored) {}
+                }
+                String recId = (item.getRecordId() != null && !item.getRecordId().isBlank())
+                        ? item.getRecordId()
+                        : req.getId() + "-INS-" + (++idx);
+                insuranceList.add(new InsuranceRecord(recId, req.getId(),
+                        item.getPaidMonths(), item.getRemainingMonths(),
+                        item.isLastInsuredShenzhen(), sr, stopDate));
+            }
+        } else {
+            // v1 向后兼容：单条记录
+            InsuranceRecord.StopReason stopReason;
+            try { stopReason = InsuranceRecord.StopReason.valueOf(req.getStopReason()); }
+            catch (Exception e) { stopReason = InsuranceRecord.StopReason.VOLUNTARY_RESIGN; }
+            insuranceList = List.of(new InsuranceRecord(req.getId(), req.getPaidMonths(),
+                    req.getRemainingMonths(), req.isLastInsuredShenzhen(), stopReason));
+        }
+
+        // ── 构建政策参数（可覆盖默认值） ─────────────────────────
+        UnemploymentPolicy policy = new UnemploymentPolicy();
+        if (req.getPolicy() != null) {
+            ApplicantRequest.PolicyParams p = req.getPolicy();
+            if (p.getMinContributionMonths() != null)
+                policy.setAttr("minContributionMonths", p.getMinContributionMonths());
+            if (p.getMaleRetirementAge() != null)
+                policy.setAttr("maleRetirementAge", p.getMaleRetirementAge());
+            if (p.getFemaleRetirementAge() != null)
+                policy.setAttr("femaleRetirementAge", p.getFemaleRetirementAge());
+            if (p.getNearRetirementYears() != null)
+                policy.setAttr("nearRetirementYears", p.getNearRetirementYears());
+        }
+
+        // ── 构建申领人对象（有出生日期时走延迟退休动态计算） ────────
+        LocalDate birthday = null;
+        if (req.getBirthday() != null && !req.getBirthday().isBlank()) {
+            try { birthday = LocalDate.parse(req.getBirthday()); } catch (Exception ignored) {}
+        }
+        String gender = req.getGender();
+        UnemployedPerson person = (birthday != null)
+                ? new UnemployedPerson(req.getId(), req.getName(), req.isDomicileShenzhen(), birthday, gender)
+                : new UnemployedPerson(req.getId(), req.getName(), req.isDomicileShenzhen(), req.isNearRetirement());
+        UnemploymentTimeline timeline = new UnemploymentTimeline(req.getId(), insuranceList);
 
         ApplicantData data = new ApplicantData(
-            scenario,
-            new UnemployedPerson(req.getId(), req.getName(),
-                    req.isDomicileShenzhen(), req.isNearRetirement()),
-            new InsuranceRecord(req.getId(), req.getPaidMonths(),
-                    req.getRemainingMonths(), req.isLastInsuredShenzhen(), stopReason),
+            scenario, policy, person, insuranceList, timeline,
             new EmployerUnit(req.getId(), creditCode, req.getUnitName(), unitType),
             new UnemploymentRegistration(req.getId(), req.isRegistered(), regDate),
             new TerminationMaterial(req.getId(), materialType, termDate, issuingUnit),
@@ -175,25 +227,26 @@ public class ReviewService {
     }
 
     private ApplicantSnapshot toSnapshot(ApplicantData d) {
+        InsuranceRecord latest = d.timeline().getLatestRecord();
         ApplicantSnapshot s = new ApplicantSnapshot();
-        s.setId(d.person.getId());
-        s.setName(d.person.getName());
-        s.setDomicileShenzhen(d.person.isDomicileShenzhen());
-        s.setNearRetirement(d.person.isNearRetirement());
-        s.setPaidMonths(d.ins.getPaidMonths());
-        s.setRemainingMonths(d.ins.getRemainingMonths());
-        s.setLastInsuredShenzhen(d.ins.isLastInsuredShenzhen());
-        s.setStopReason(d.ins.getStopReason().name());
-        s.setUnitName(d.unit.getUnitName());
-        s.setUnitType(d.unit.getUnitType().getCode());
-        s.setUnitTypeLabel(d.unit.getUnitType().getLabel());
-        s.setRegistered(d.reg.isRegistered());
-        s.setRegistrationDate(d.reg.getRegistrationDate());
-        s.setMaterialType(d.mat.getMaterialType().name());
-        s.setTerminationDate(d.mat.getTerminationDate());
-        s.setIssuingUnit(d.mat.getIssuingUnit());
-        s.setBankName(d.bank.getBankName());
-        s.setAccountNo(d.bank.getAccountNo());
+        s.setId(d.person().getId());
+        s.setName(d.person().getName());
+        s.setDomicileShenzhen(d.person().isDomicileShenzhen());
+        s.setNearRetirement(d.person().isNearRetirement());
+        s.setPaidMonths(d.timeline().getTotalMonths());
+        s.setRemainingMonths(latest.getRemainingMonths());
+        s.setLastInsuredShenzhen(latest.isLastInsuredShenzhen());
+        s.setStopReason(latest.getStopReason().name());
+        s.setUnitName(d.unit().getUnitName());
+        s.setUnitType(d.unit().getUnitType().getCode());
+        s.setUnitTypeLabel(d.unit().getUnitType().getLabel());
+        s.setRegistered(d.reg().isRegistered());
+        s.setRegistrationDate(d.reg().getRegistrationDate());
+        s.setMaterialType(d.mat().getMaterialType().name());
+        s.setTerminationDate(d.mat().getTerminationDate());
+        s.setIssuingUnit(d.mat().getIssuingUnit());
+        s.setBankName(d.bank().getBankName());
+        s.setAccountNo(d.bank().getAccountNo());
         return s;
     }
 
@@ -202,7 +255,7 @@ public class ReviewService {
     private List<ApplicantData> buildDemoDataset() {
         List<ApplicantData> list = new ArrayList<>();
 
-        list.add(new ApplicantData("scenario-1 (approved)",
+        list.add(ApplicantData.of("scenario-1 (approved)",
             new UnemployedPerson("440101199001011234", "ZhangSan", true, false),
             new InsuranceRecord("440101199001011234", 36, 18, true, StopReason.CONTRACT_EXPIRED),
             new EmployerUnit("440101199001011234", "91440300MA5XXXXX1A", "ABC Tech Co.", UnitType.ENTERPRISE),
@@ -211,7 +264,7 @@ public class ReviewService {
             new BankAccount("440101199001011234", "6222021234567890", "CCB", "ZhangSan")
         ));
 
-        list.add(new ApplicantData("scenario-1 (rejected - voluntary resign)",
+        list.add(ApplicantData.of("scenario-1 (rejected - voluntary resign)",
             new UnemployedPerson("440101199001012345", "LiSi", true, false),
             new InsuranceRecord("440101199001012345", 24, 12, true, StopReason.VOLUNTARY_RESIGN),
             new EmployerUnit("440101199001012345", "91440300MA5XXXXX2B", "DEF Trading Co.", UnitType.ENTERPRISE),
@@ -220,7 +273,7 @@ public class ReviewService {
             new BankAccount("440101199001012345", "6222029876543210", "ICBC", "LiSi")
         ));
 
-        list.add(new ApplicantData("scenario-2 (approved)",
+        list.add(ApplicantData.of("scenario-2 (approved)",
             new UnemployedPerson("440101199001013456", "WangWu", true, false),
             new InsuranceRecord("440101199001013456", 8, 4, true, StopReason.UNIT_LAYOFF_ARTICLE41),
             new EmployerUnit("440101199001013456", "91440300MA5XXXXX3C", "XYZ Manufacturing", UnitType.ENTERPRISE),
@@ -229,7 +282,7 @@ public class ReviewService {
             new BankAccount("440101199001013456", "6222025555666677", "ABC Bank", "WangWu")
         ));
 
-        list.add(new ApplicantData("scenario-3 (approved)",
+        list.add(ApplicantData.of("scenario-3 (approved)",
             new UnemployedPerson("440101196501014567", "ZhaoLiu", true, true),
             new InsuranceRecord("440101196501014567", 240, 24, true, StopReason.CONTRACT_EXPIRED),
             new EmployerUnit("440101196501014567", "12440300000XXXXX4D", "SZ Public Institute", UnitType.ENTERPRISE),
@@ -238,7 +291,7 @@ public class ReviewService {
             new BankAccount("440101196501014567", "6222021111222233", "Bank of China", "ZhaoLiu")
         ));
 
-        list.add(new ApplicantData("scenario-4 (approved)",
+        list.add(ApplicantData.of("scenario-4 (approved)",
             new UnemployedPerson("440101198001015678", "ChenQi", true, false),
             new InsuranceRecord("440101198001015678", 60, 12, true, StopReason.INDIVIDUAL_UNIT_CLOSED),
             new EmployerUnit("440101198001015678", "92440300MA5XXXXX5E", "Chen Catering", UnitType.INDIVIDUAL_BUSINESS),
@@ -247,7 +300,7 @@ public class ReviewService {
             new BankAccount("440101198001015678", "6222023344556677", "CMB", "ChenQi")
         ));
 
-        list.add(new ApplicantData("rejected (last insured not Shenzhen)",
+        list.add(ApplicantData.of("rejected (last insured not Shenzhen)",
             new UnemployedPerson("440101199001016789", "LinBa", true, false),
             new InsuranceRecord("440101199001016789", 18, 9, false, StopReason.CONTRACT_EXPIRED),
             new EmployerUnit("440101199001016789", "91440100MA5XXXXX6F", "GZ Tech Co.", UnitType.ENTERPRISE),
@@ -262,10 +315,30 @@ public class ReviewService {
     /** 内部数据载体，将一位申请人的全部关联实体聚合在一起 */
     private record ApplicantData(
             String scenario,
+            UnemploymentPolicy policy,
             UnemployedPerson person,
-            InsuranceRecord ins,
+            List<InsuranceRecord> insuranceList,
+            UnemploymentTimeline timeline,
             EmployerUnit unit,
             UnemploymentRegistration reg,
             TerminationMaterial mat,
-            BankAccount bank) {}
+            BankAccount bank) {
+
+        /** 便捷构造：单条参保记录，默认政策 */
+        static ApplicantData of(String scenario,
+                                UnemployedPerson person,
+                                InsuranceRecord ins,
+                                EmployerUnit unit,
+                                UnemploymentRegistration reg,
+                                TerminationMaterial mat,
+                                BankAccount bank) {
+            List<InsuranceRecord> list = List.of(ins);
+            return new ApplicantData(scenario,
+                    new UnemploymentPolicy(),
+                    person,
+                    list,
+                    new UnemploymentTimeline(person.getId(), list),
+                    unit, reg, mat, bank);
+        }
+    }
 }
