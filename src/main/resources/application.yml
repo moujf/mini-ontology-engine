@@ -1,0 +1,18 @@
+# Spring Boot 应用核心配置
+server:
+  port: 8080
+
+spring:
+  # 应用名称配置
+  application:
+    name: mini-ontology-engine
+  # 静态资源配置
+  web:
+    resources:
+      static-locations: classpath:/static/
+
+# 日志级别配置（抑制 Drools 相关的 WARN 日志）
+logging:
+  level:
+    org.drools: ERROR
+    org.kie: ERROR

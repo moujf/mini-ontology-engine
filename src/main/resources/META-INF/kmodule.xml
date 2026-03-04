@@ -1,0 +1,7 @@
+
+<kmodule xmlns="http://www.drools.org/xsd/kmodule">
+  <!-- v1.0: 失业保险金申领资格规则集 -->
+  <kbase name="unemploymentKBaseV1" packages="ontology.rules.v1_0">
+    <ksession name="unemploymentSessionV1"/>
+  </kbase>
+</kmodule>

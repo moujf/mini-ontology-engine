@@ -1,0 +1,204 @@
+package ontology.rules.v1_0
+
+import com.example.ontology.model.UnemployedPerson;
+import com.example.ontology.model.InsuranceRecord;
+import com.example.ontology.model.InsuranceRecord.StopReason;
+import com.example.ontology.model.UnemploymentRegistration;
+import com.example.ontology.model.TerminationMaterial;
+import com.example.ontology.model.EmployerUnit;
+import com.example.ontology.model.BankAccount;
+import com.example.ontology.model.EligibilityResult;
+
+// ============================================================
+// Helper: 停保原因是否属于非本人意愿（来自 InsuranceRecord.StopReason）
+// 覆盖操作规程中 14 种合法停保原因。
+// ============================================================
+function boolean isInvoluntaryStop(StopReason reason) {
+    switch (reason) {
+        case CONTRACT_EXPIRED:
+        case UNIT_BANKRUPT:
+        case UNIT_ORDERED_CLOSE:
+        case UNIT_LICENSE_REVOKED:
+        case UNIT_DISSOLVED:
+        case UNIT_FIRE_FOR_FAULT:
+        case UNIT_ADVANCE_NOTICE:
+        case UNIT_PAY_ONE_MONTH:
+        case UNIT_LAYOFF_ARTICLE41:
+        case MUTUAL_AGREEMENT_UNIT_PROPOSE:
+        case WORKER_QUIT_FOR_UNIT_FAULT:
+        case PUBLIC_UNIT_TERMINATE:
+        case INDIVIDUAL_UNIT_CLOSED:
+        case INDIVIDUAL_STOP_PRODUCTION:
+            return true;
+        default:
+            return false;
+    }
+}
+
+// ============================================================
+// Rule 1: 情形一 — 一般职工，缴费 ≥ 12 个月
+// 单位类型非个体工商户（代码≠81），缴费月数 ≥ 12
+// ============================================================
+rule "unemployment-benefit-general-employee"
+    when
+        // 申请人：户籍深圳，非临近退休（临近退休走情形三）
+        $p: UnemployedPerson(isDomicileShenzhen() == true, isNearRetirement() == false)
+        // 参保记录：最后参保地深圳，缴费≥12个月，有剩余领取期限，停保原因非本人意愿
+        $ins: InsuranceRecord(
+            getApplicantId() == $p.getId(),
+            isLastInsuredShenzhen() == true,
+            getPaidMonths() >= 12,
+            getRemainingMonths() > 0,
+            isInvoluntaryStop(getStopReason()) == true
+        )
+        // 用人单位：非个体工商户
+        $unit: EmployerUnit(
+            getApplicantId() == $p.getId(),
+            isIndividualBusiness() == false
+        )
+        // 失业登记有效
+        $reg: UnemploymentRegistration(
+            getApplicantId() == $p.getId(),
+            isRegistered() == true
+        )
+        // 终止材料已提交（存在即可，材料与停保原因对应关系由人工审核）
+        $mat: TerminationMaterial(getApplicantId() == $p.getId())
+    then
+        System.out.println("[RULE][PASS] scenario-1 general-employee");
+        System.out.println("  applicant : " + $p.getName() + " (" + $p.getId() + ")");
+        System.out.println("  unit      : " + $unit.getUnitName() + " [" + $unit.getUnitType() + "]");
+        System.out.println("  insurance : paid=" + $ins.getPaidMonths() + "m  remaining=" + $ins.getRemainingMonths() + "m  stop=" + $ins.getStopReason());
+        System.out.println("  reg       : valid=" + $reg.isRegistered() + "  date=" + $reg.getRegistrationDate());
+        System.out.println("  material  : type=" + $mat.getMaterialType() + "  date=" + $mat.getTerminationDate());
+        insert(new EligibilityResult($p.getId() + "-ELIG"));
+end
+
+// ============================================================
+// Rule 2: 情形二 — 缴费不满 12 个月但有剩余领取期限
+// 单位类型非个体工商户，缴费 < 12 个月，剩余月数 > 0
+// ============================================================
+rule "unemployment-benefit-short-tenure"
+    when
+        $p: UnemployedPerson(isDomicileShenzhen() == true, isNearRetirement() == false)
+        $ins: InsuranceRecord(
+            getApplicantId() == $p.getId(),
+            isLastInsuredShenzhen() == true,
+            getPaidMonths() < 12,
+            getRemainingMonths() > 0,
+            isInvoluntaryStop(getStopReason()) == true
+        )
+        $unit: EmployerUnit(
+            getApplicantId() == $p.getId(),
+            isIndividualBusiness() == false
+        )
+        $reg: UnemploymentRegistration(
+            getApplicantId() == $p.getId(),
+            isRegistered() == true
+        )
+        $mat: TerminationMaterial(getApplicantId() == $p.getId())
+    then
+        System.out.println("[RULE][PASS] scenario-2 short-tenure");
+        System.out.println("  applicant : " + $p.getName() + " (" + $p.getId() + ")");
+        System.out.println("  unit      : " + $unit.getUnitName() + " [" + $unit.getUnitType() + "]");
+        System.out.println("  insurance : paid=" + $ins.getPaidMonths() + "m  remaining=" + $ins.getRemainingMonths() + "m  stop=" + $ins.getStopReason());
+        System.out.println("  reg       : valid=" + $reg.isRegistered() + "  date=" + $reg.getRegistrationDate());
+        System.out.println("  material  : type=" + $mat.getMaterialType() + "  date=" + $mat.getTerminationDate());
+        insert(new EligibilityResult($p.getId() + "-ELIG"));
+end
+
+// ============================================================
+// Rule 3: 情形四 — 个体工商户业主
+// 单位类型 = 81（个体工商户），停保原因限于注销或停产停业
+// ============================================================
+rule "unemployment-benefit-individual-business"
+    when
+        $p: UnemployedPerson(isDomicileShenzhen() == true)
+        $ins: InsuranceRecord(
+            getApplicantId() == $p.getId(),
+            isLastInsuredShenzhen() == true,
+            meetsPaymentCondition() == true,
+            getRemainingMonths() > 0,
+            (getStopReason() == StopReason.INDIVIDUAL_UNIT_CLOSED
+             || getStopReason() == StopReason.INDIVIDUAL_STOP_PRODUCTION)
+        )
+        $unit: EmployerUnit(
+            getApplicantId() == $p.getId(),
+            isIndividualBusiness() == true
+        )
+        $reg: UnemploymentRegistration(
+            getApplicantId() == $p.getId(),
+            isRegistered() == true
+        )
+        $mat: TerminationMaterial(getApplicantId() == $p.getId())
+    then
+        System.out.println("[RULE][PASS] scenario-4 individual-business");
+        System.out.println("  applicant : " + $p.getName() + " (" + $p.getId() + ")");
+        System.out.println("  unit      : " + $unit.getUnitName() + " [" + $unit.getUnitType() + "]");
+        System.out.println("  insurance : paid=" + $ins.getPaidMonths() + "m  remaining=" + $ins.getRemainingMonths() + "m  stop=" + $ins.getStopReason());
+        System.out.println("  reg       : valid=" + $reg.isRegistered() + "  date=" + $reg.getRegistrationDate());
+        System.out.println("  material  : type=" + $mat.getMaterialType() + "  date=" + $mat.getTerminationDate());
+        insert(new EligibilityResult($p.getId() + "-ELIG"));
+end
+
+// ============================================================
+// Rule 4: 情形三 — 临近退休人员（距法定退休年龄不足5年）
+// 单位类型非个体工商户，申请人标记临近退休，剩余领取期限需 > 0
+// ============================================================
+rule "unemployment-benefit-near-retirement"
+    when
+        $p: UnemployedPerson(isDomicileShenzhen() == true, isNearRetirement() == true)
+        $ins: InsuranceRecord(
+            getApplicantId() == $p.getId(),
+            isLastInsuredShenzhen() == true,
+            meetsPaymentCondition() == true,
+            getRemainingMonths() > 0,
+            isInvoluntaryStop(getStopReason()) == true
+        )
+        $unit: EmployerUnit(
+            getApplicantId() == $p.getId(),
+            isIndividualBusiness() == false
+        )
+        $reg: UnemploymentRegistration(
+            getApplicantId() == $p.getId(),
+            isRegistered() == true
+        )
+        $mat: TerminationMaterial(getApplicantId() == $p.getId())
+    then
+        System.out.println("[RULE][PASS] scenario-3 near-retirement");
+        System.out.println("  applicant : " + $p.getName() + " (" + $p.getId() + ")");
+        System.out.println("  unit      : " + $unit.getUnitName() + " [" + $unit.getUnitType() + "]");
+        System.out.println("  insurance : paid=" + $ins.getPaidMonths() + "m  remaining=" + $ins.getRemainingMonths() + "m  stop=" + $ins.getStopReason());
+        System.out.println("  reg       : valid=" + $reg.isRegistered() + "  date=" + $reg.getRegistrationDate());
+        System.out.println("  material  : type=" + $mat.getMaterialType() + "  date=" + $mat.getTerminationDate());
+        insert(new EligibilityResult($p.getId() + "-ELIG"));
+end
+
+// ============================================================
+// Rule 5: 兜底拒绝 — 不满足以上任一情形，输出详细拒绝原因
+// ============================================================
+rule "unemployment-benefit-rejected"
+    when
+        $p:   UnemployedPerson()
+        $ins: InsuranceRecord(          getApplicantId() == $p.getId())
+        $unit: EmployerUnit(            getApplicantId() == $p.getId())
+        $reg: UnemploymentRegistration( getApplicantId() == $p.getId())
+        $mat: TerminationMaterial(      getApplicantId() == $p.getId())
+        not EligibilityResult(getId() == ($p.getId() + "-ELIG"))
+    then
+        StringBuilder reason = new StringBuilder();
+        if (!$p.isDomicileShenzhen())                         reason.append("domicile-not-shenzhen; ");
+        if (!$ins.isLastInsuredShenzhen())                    reason.append("last-insured-not-shenzhen; ");
+        if (!$ins.meetsPaymentCondition())                    reason.append("insufficient-paid-months; ");
+        if ($ins.getRemainingMonths() <= 0)                   reason.append("no-remaining-months; ");
+        if (!$reg.isRegistered())                             reason.append("registration-invalid; ");
+        if (!isInvoluntaryStop($ins.getStopReason()))         reason.append("voluntary-stop(" + $ins.getStopReason() + "); ");
+
+        System.out.println("[RULE][REJECTED]");
+        System.out.println("  applicant : " + $p.getName() + " (" + $p.getId() + ")");
+        System.out.println("  unit      : " + $unit.getUnitName() + " [" + $unit.getUnitType() + "]");
+        System.out.println("  insurance : paid=" + $ins.getPaidMonths() + "m  remaining=" + $ins.getRemainingMonths() + "m  stop=" + $ins.getStopReason());
+        System.out.println("  reg       : valid=" + $reg.isRegistered());
+        System.out.println("  material  : type=" + $mat.getMaterialType());
+        System.out.println("  reason    : " + reason);
+        insert(new EligibilityResult($p.getId() + "-NOT-ELIG", reason.toString()));
+end

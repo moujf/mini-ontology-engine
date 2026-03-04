@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>失业保险金申领资格审查系统</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet"/>
+  <style>
+    :root {
+      --md-primary: #1565C0; --md-on-primary: #fff;
+      --md-primary-container: #D6E4FF;
+      --md-secondary: #00838F;
+      --md-error: #B00020; --md-error-container: #FDECEA;
+      --md-success: #1B5E20; --md-success-container: #E8F5E9;
+      --md-surface: #FAFCFF; --md-surface-variant: #F0F4FF;
+      --md-on-surface: #1A1C1E; --md-on-surface-variant: #42474E;
+      --md-outline: #72777F; --md-outline-variant: #C2C7CF;
+      --md-elev1: 0 1px 3px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.14);
+      --md-elev2: 0 2px 6px rgba(0,0,0,.12),0 2px 4px rgba(0,0,0,.14);
+      --md-elev3: 0 4px 12px rgba(0,0,0,.12),0 3px 6px rgba(0,0,0,.14);
+      --md-r-sm: 8px; --md-r-md: 12px; --md-r-lg: 16px; --md-r-xl: 24px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans SC','Roboto',sans-serif; background: #EEF2FB; color: var(--md-on-surface); min-height: 100vh; }
+
+    /* Top Bar */
+    .top-bar { position: sticky; top: 0; z-index: 200; background: var(--md-primary); color: #fff; padding: 0 24px; height: 64px; display: flex; align-items: center; gap: 16px; box-shadow: var(--md-elev2); }
+    .top-bar .title { font-size: 20px; font-weight: 500; flex: 1; }
+    .version-badge { font-size: 12px; background: rgba(255,255,255,.2); border-radius: 12px; padding: 4px 12px; font-weight: 500; }
+
+    /* Tabs */
+    .tab-bar { background: white; box-shadow: var(--md-elev1); display: flex; gap: 0; padding: 0 24px; }
+    .tab { padding: 16px 24px; font-size: 14px; font-weight: 500; cursor: pointer; border-bottom: 3px solid transparent; color: var(--md-on-surface-variant); transition: all .2s; user-select: none; display: flex; align-items: center; gap: 8px; }
+    .tab.active { color: var(--md-primary); border-bottom-color: var(--md-primary); }
+    .tab:hover:not(.active) { background: var(--md-surface-variant); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .main-container { max-width: 1280px; margin: 0 auto; padding: 24px 20px 60px; }
+
+    /* Hero */
+    .hero { background: linear-gradient(135deg,#1565C0 0%,#0D47A1 60%,#00838F 100%); border-radius: var(--md-r-xl); padding: 32px 36px; color: white; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; box-shadow: var(--md-elev3); margin-bottom: 24px; }
+    .hero-text h1 { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+    .hero-text p  { font-size: 14px; opacity: .85; max-width: 560px; line-height: 1.6; }
+    .fab { display: inline-flex; align-items: center; gap: 10px; background: white; color: var(--md-primary); border: none; border-radius: 16px; padding: 14px 28px; font-size: 15px; font-weight: 600; cursor: pointer; box-shadow: var(--md-elev2); transition: box-shadow .2s,transform .15s; font-family: inherit; }
+    .fab:hover { box-shadow: var(--md-elev3); transform: translateY(-2px); }
+    .fab:active { transform: translateY(0); }
+    .fab .material-icons-round { font-size: 20px; }
+
+    /* Stepper */
+    .stepper { display: flex; align-items: center; background: white; border-radius: var(--md-r-lg); box-shadow: var(--md-elev1); padding: 16px 24px; margin-bottom: 24px; overflow-x: auto; }
+    .step { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; min-width: 100px; position: relative; }
+    .step::after  { content:""; position:absolute; right:0; top:18px; width:calc(50% - 18px); height:2px; background:var(--md-outline-variant); }
+    .step::before { content:""; position:absolute; left:0;  top:18px; width:calc(50% - 18px); height:2px; background:var(--md-outline-variant); }
+    .step:first-child::before, .step:last-child::after { display:none; }
+    .step.active::after,.step.active::before,.step.done::after,.step.done::before { background:var(--md-primary); }
+    .step-circle { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; background:var(--md-outline-variant); color:white; z-index:1; transition:background .3s; }
+    .step.active .step-circle { background:var(--md-primary); }
+    .step.done   .step-circle { background:#2E7D32; }
+    .step-label { font-size:12px; font-weight:500; color:var(--md-on-surface-variant); text-align:center; }
+    .step.active .step-label,.step.done .step-label { color:var(--md-on-surface); }
+
+    /* Section header */
+    .section-header { display:flex; align-items:center; gap:12px; margin:0 0 16px; }
+    .section-icon { width:40px; height:40px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+    .section-icon.ph1 { background:var(--md-primary-container); color:var(--md-primary); }
+    .section-icon.ph2 { background:#FFF8E1; color:#F57F17; }
+    .section-icon.ph3 { background:var(--md-success-container); color:var(--md-success); }
+    .section-title { font-size:18px; font-weight:600; }
+    .section-sub   { font-size:13px; color:var(--md-on-surface-variant); margin-top:2px; }
+
+    /* Cards grid */
+    .cards-grid, .result-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; }
+    .card { background:white; border-radius:var(--md-r-lg); box-shadow:var(--md-elev1); overflow:hidden; transition:box-shadow .2s; }
+    .card:hover { box-shadow:var(--md-elev2); }
+    .card-header { padding:16px 20px 12px; display:flex; align-items:flex-start; gap:14px; border-bottom:1px solid var(--md-outline-variant); }
+    .avatar { width:44px; height:44px; border-radius:50%; background:var(--md-primary-container); color:var(--md-primary); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+    .card-title { font-size:15px; font-weight:600; }
+    .card-subtitle { font-size:12px; color:var(--md-on-surface-variant); margin-top:3px; font-family:'Roboto Mono',monospace; }
+    .card-body { padding:14px 20px 18px; }
+    .info-row { display:flex; align-items:baseline; gap:8px; padding:5px 0; border-bottom:1px solid #F0F4F8; font-size:13.5px; }
+    .info-row:last-child { border-bottom:none; }
+    .info-label { color:var(--md-on-surface-variant); font-size:12px; min-width:80px; flex-shrink:0; }
+    .info-value { font-weight:500; word-break:break-all; }
+    .chip { display:inline-block; padding:2px 10px; border-radius:20px; font-size:11.5px; font-weight:500; }
+    .chip-blue  { background:var(--md-primary-container); color:var(--md-primary); }
+    .chip-green { background:var(--md-success-container); color:var(--md-success); }
+    .chip-red   { background:var(--md-error-container); color:var(--md-error); }
+    .chip-amber { background:#FFF8E1; color:#E65100; }
+    .chip-teal  { background:#E0F7FA; color:#00695C; }
+
+    /* Log */
+    .log-card { background:#1A1D27; border-radius:var(--md-r-lg); padding:20px 24px; box-shadow:var(--md-elev2); overflow:hidden; }
+    .log-toolbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+    .dot-row { display:flex; gap:7px; }
+    .dot { width:12px; height:12px; border-radius:50%; }
+    .dot-r{background:#FF5F57;} .dot-y{background:#FFBD2E;} .dot-g{background:#28C840;}
+    #log-body { max-height:420px; overflow-y:auto; font-family:'Roboto Mono','Consolas',monospace; font-size:13px; line-height:1.65; }
+    .log-line { padding:1px 0; }
+    .log-pass   { color:#69FF47; }
+    .log-reject { color:#FF6B6B; }
+    .log-detail { color:#87CEEB; }
+    .log-default{ color:#C8C8C8; }
+
+    /* Result cards */
+    .result-card { border-radius:var(--md-r-lg); overflow:hidden; box-shadow:var(--md-elev1); transition:box-shadow .2s; }
+    .result-card:hover { box-shadow:var(--md-elev2); }
+    .result-card.approved { border-top:4px solid #2E7D32; background:white; }
+    .result-card.rejected { border-top:4px solid #C62828; background:white; }
+    .result-header { padding:16px 20px 12px; display:flex; align-items:center; gap:14px; border-bottom:1px solid var(--md-outline-variant); }
+    .status-icon { width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+    .status-icon.ok  { background:var(--md-success-container); color:var(--md-success); }
+    .status-icon.err { background:var(--md-error-container); color:var(--md-error); }
+    .result-body { padding:14px 20px 18px; }
+    .verdict { display:flex; align-items:center; gap:8px; font-size:15px; font-weight:700; margin-bottom:12px; }
+    .verdict.ok  { color:var(--md-success); }
+    .verdict.err { color:var(--md-error); }
+    .reject-box { background:var(--md-error-container); border-radius:var(--md-r-sm); padding:10px 14px; font-size:13px; color:var(--md-error); margin-top:8px; }
+    .reject-box .reject-label { font-weight:600; margin-bottom:4px; font-size:12px; }
+    .reject-reason-item { display:flex; align-items:flex-start; gap:6px; padding:2px 0; }
+    .reject-reason-item::before { content:"•"; flex-shrink:0; }
+    .bank-box { background:var(--md-success-container); border-radius:var(--md-r-sm); padding:10px 14px; font-size:13px; margin-top:8px; display:flex; align-items:center; gap:10px; }
+    .bank-box .material-icons-round { font-size:20px; color:var(--md-success); }
+    .bank-info .bank-name { font-weight:600; color:var(--md-success); font-size:13px; }
+    .bank-info .bank-no   { font-size:12px; color:#2E7D32; font-family:'Roboto Mono',monospace; }
+
+    /* Summary bar */
+    .summary-bar { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px; }
+    .summary-chip { background:white; border-radius:var(--md-r-lg); padding:10px 20px; display:flex; align-items:center; gap:10px; box-shadow:var(--md-elev1); font-size:14px; font-weight:500; }
+    .summary-chip .num { font-size:22px; font-weight:700; }
+    .summary-chip.total .num { color:var(--md-primary); }
+    .summary-chip.ok .num    { color:var(--md-success); }
+    .summary-chip.fail .num  { color:var(--md-error); }
+
+    /* Placeholder */
+    .placeholder { text-align:center; padding:60px 20px; color:var(--md-on-surface-variant); }
+    .placeholder .material-icons-round { font-size:56px; opacity:.3; }
+    .placeholder p { margin-top:12px; font-size:15px; }
+
+    /* Spinner */
+    .spinner { display:none; width:24px; height:24px; border:3px solid rgba(21,101,192,.3); border-top-color:var(--md-primary); border-radius:50%; animation:spin .8s linear infinite; }
+    .btn-loading .spinner { display:inline-block; }
+    .btn-loading .btn-label, .btn-loading .material-icons-round { display:none; }
+    @keyframes spin { to{transform:rotate(360deg);} }
+
+    /* ═══ Input Form ═══ */
+    .form-card { background:white; border-radius:var(--md-r-xl); box-shadow:var(--md-elev2); overflow:hidden; margin-bottom:24px; }
+    .form-card-header { background:linear-gradient(135deg,#1565C0,#00838F); padding:24px 32px; color:white; }
+    .form-card-header h2 { font-size:20px; font-weight:600; display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+    .form-card-header p  { font-size:13px; opacity:.85; }
+    .form-body { padding:28px 32px; }
+
+    .form-section-label { font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--md-primary); margin:20px 0 12px; display:flex; align-items:center; gap:6px; }
+    .form-section-label:first-child { margin-top:0; }
+    .form-section-label .material-icons-round { font-size:16px; }
+    .form-section-divider { border:none; border-top:1px solid var(--md-outline-variant); margin:4px 0 16px; }
+
+    .form-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; }
+    .form-grid.cols2 { grid-template-columns:repeat(2,1fr); }
+
+    .field { display:flex; flex-direction:column; gap:5px; }
+    .field label { font-size:12px; font-weight:500; color:var(--md-on-surface-variant); }
+    .field input, .field select {
+      height:44px; border:1.5px solid var(--md-outline-variant); border-radius:var(--md-r-sm);
+      padding:0 12px; font-size:14px; font-family:inherit; color:var(--md-on-surface);
+      background:var(--md-surface); outline:none; transition:border-color .2s,box-shadow .2s;
+    }
+    .field input:focus, .field select:focus { border-color:var(--md-primary); box-shadow:0 0 0 3px rgba(21,101,192,.15); }
+    .field input.error, .field select.error { border-color:var(--md-error); }
+    .field .hint { font-size:11px; color:var(--md-on-surface-variant); }
+    .field .err-msg { font-size:11px; color:var(--md-error); display:none; }
+    .field.invalid .err-msg { display:block; }
+    .field.invalid input,.field.invalid select { border-color:var(--md-error); }
+
+    /* Toggle switch */
+    .toggle-group { display:flex; flex-direction:column; gap:5px; }
+    .toggle-group label.main-label { font-size:12px; font-weight:500; color:var(--md-on-surface-variant); }
+    .toggle { display:flex; align-items:center; gap:10px; padding:10px 14px; border:1.5px solid var(--md-outline-variant); border-radius:var(--md-r-sm); cursor:pointer; transition:border-color .2s; }
+    .toggle:hover { border-color:var(--md-primary); }
+    .toggle input[type=checkbox] { display:none; }
+    .toggle-knob { width:40px; height:22px; background:var(--md-outline-variant); border-radius:11px; position:relative; transition:background .2s; flex-shrink:0; }
+    .toggle-knob::after { content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:white; transition:transform .2s; }
+    .toggle input:checked ~ .toggle-knob { background:var(--md-primary); }
+    .toggle input:checked ~ .toggle-knob::after { transform:translateX(18px); }
+    .toggle-text { font-size:13px; font-weight:500; color:var(--md-on-surface); }
+
+    /* Submit row */
+    .submit-row { display:flex; align-items:center; gap:16px; margin-top:28px; padding-top:20px; border-top:1px solid var(--md-outline-variant); flex-wrap:wrap; }
+    .btn-primary { display:inline-flex; align-items:center; gap:8px; background:var(--md-primary); color:white; border:none; border-radius:var(--md-r-md); padding:13px 28px; font-size:15px; font-weight:600; cursor:pointer; font-family:inherit; transition:box-shadow .2s,transform .15s; box-shadow:var(--md-elev1); }
+    .btn-primary:hover { box-shadow:var(--md-elev2); transform:translateY(-1px); }
+    .btn-primary:active { transform:translateY(0); }
+    .btn-primary .material-icons-round { font-size:18px; }
+    .btn-secondary { display:inline-flex; align-items:center; gap:8px; background:white; color:var(--md-primary); border:1.5px solid var(--md-primary); border-radius:var(--md-r-md); padding:12px 24px; font-size:14px; font-weight:600; cursor:pointer; font-family:inherit; transition:background .15s; }
+    .btn-secondary:hover { background:var(--md-primary-container); }
+    .btn-secondary .material-icons-round { font-size:16px; }
+
+    /* Result panel inside submit tab */
+    #submit-result-panel { margin-top:24px; }
+
+    /* Alert */
+    .alert { border-radius:var(--md-r-md); padding:14px 18px; font-size:13.5px; margin-bottom:16px; display:flex; align-items:flex-start; gap:10px; }
+    .alert.error   { background:var(--md-error-container); color:var(--md-error); }
+    .alert.success { background:var(--md-success-container); color:var(--md-success); }
+    .alert .material-icons-round { font-size:20px; flex-shrink:0; margin-top:1px; }
+
+    #log-body::-webkit-scrollbar { width:6px; }
+    #log-body::-webkit-scrollbar-track { background:transparent; }
+    #log-body::-webkit-scrollbar-thumb { background:rgba(255,255,255,.2); border-radius:3px; }
+
+    @media(max-width:600px) {
+      .hero { padding:24px 20px; } .hero-text h1 { font-size:18px; }
+      .main-container { padding:16px 12px 40px; }
+      .form-body { padding:20px 16px; }
+      .form-grid { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="top-bar">
+  <span class="material-icons-round">policy</span>
+  <span class="title">失业保险金申领资格审查系统</span>
+  <span class="version-badge" id="version-badge">Rule v—</span>
+</header>
+
+<!-- Tab Bar -->
+<nav class="tab-bar">
+  <div class="tab active" onclick="switchTab('demo')" id="tab-demo">
+    <span class="material-icons-round" style="font-size:18px">play_circle</span> 示例演示
+  </div>
+  <div class="tab" onclick="switchTab('submit')" id="tab-submit">
+    <span class="material-icons-round" style="font-size:18px">person_add</span> 录入新申请
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════
+     TAB 1: Demo Review
+═══════════════════════════════════════════ -->
+<div class="tab-panel active" id="panel-demo">
+<main class="main-container">
+
+  <div class="hero">
+    <div class="hero-text">
+      <h1>Ontology-Driven Rule Engine Demo</h1>
+      <p>基于 Drools 本体规则引擎，完整演示「录入申请人信息 → 规则触发 → 输出审查结论」三阶段流水线。规则集版本：<strong id="hero-version">v—</strong></p>
+    </div>
+    <button class="fab" id="run-btn" onclick="runReview()">
+      <span class="material-icons-round">play_circle</span>
+      <span class="btn-label">执行审查</span>
+      <div class="spinner"></div>
+    </button>
+  </div>
+
+  <!-- Stepper -->
+  <div class="stepper">
+    <div class="step" id="step1">
+      <div class="step-circle"><span class="material-icons-round" style="font-size:18px">input</span></div>
+      <div class="step-label">Phase 1<br/>录入申请人</div>
+    </div>
+    <div class="step" id="step2">
+      <div class="step-circle"><span class="material-icons-round" style="font-size:18px">bolt</span></div>
+      <div class="step-label">Phase 2<br/>规则触发</div>
+    </div>
+    <div class="step" id="step3">
+      <div class="step-circle"><span class="material-icons-round" style="font-size:18px">task_alt</span></div>
+      <div class="step-label">Phase 3<br/>审查结论</div>
+    </div>
+  </div>
+
+  <!-- Phase 1 -->
+  <div id="section-phase1" style="display:none">
+    <div class="section-header">
+      <div class="section-icon ph1"><span class="material-icons-round">group_add</span></div>
+      <div>
+        <div class="section-title">Phase 1 — 录入申请人信息</div>
+        <div class="section-sub">所有申请人实体已插入 Drools Working Memory（每人独立 KieSession）</div>
+      </div>
+    </div>
+    <div class="cards-grid" id="applicant-grid"></div>
+  </div>
+
+  <!-- Phase 2 -->
+  <div id="section-phase2" style="display:none; margin-top:32px">
+    <div class="section-header">
+      <div class="section-icon ph2"><span class="material-icons-round">terminal</span></div>
+      <div>
+        <div class="section-title">Phase 2 — 规则引擎执行日志</div>
+        <div class="section-sub">Drools fireAllRules() 触发后的 then 块输出（每人独立执行）</div>
+      </div>
+    </div>
+    <div class="log-card">
+      <div class="log-toolbar">
+        <div class="dot-row"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+        <span style="color:#888;font-size:12px;font-family:monospace">drools-rule-engine — stdout</span>
+      </div>
+      <div id="log-body"></div>
+    </div>
+  </div>
+
+  <!-- Phase 3 -->
+  <div id="section-phase3" style="display:none; margin-top:32px">
+    <div class="section-header">
+      <div class="section-icon ph3"><span class="material-icons-round">fact_check</span></div>
+      <div>
+        <div class="section-title">Phase 3 — 审查结论</div>
+        <div class="section-sub">规则引擎对每位申请人的最终资格判定</div>
+      </div>
+    </div>
+    <div class="summary-bar" id="summary-bar"></div>
+    <div class="result-cards" id="result-grid"></div>
+  </div>
+
+  <div class="placeholder" id="placeholder">
+    <span class="material-icons-round">smart_toy</span>
+    <p>点击「执行审查」按钮，启动规则引擎流水线</p>
+  </div>
+
+</main>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     TAB 2: Submit New Applicant
+═══════════════════════════════════════════ -->
+<div class="tab-panel" id="panel-submit">
+<main class="main-container">
+
+  <div class="form-card">
+    <div class="form-card-header">
+      <h2><span class="material-icons-round">person_add_alt</span>录入新申请人</h2>
+      <p>填写申请人基本信息，提交后实时调用 Drools 规则引擎，即时返回资格审查结论</p>
+    </div>
+    <div class="form-body">
+
+      <!-- 申请人 -->
+      <div class="form-section-label"><span class="material-icons-round">badge</span>申请人信息</div>
+      <hr class="form-section-divider"/>
+      <div class="form-grid">
+        <div class="field" id="f-id">
+          <label>证件号码 *</label>
+          <input id="inp-id" type="text" placeholder="440101199001011234" maxlength="18"/>
+          <span class="err-msg">请输入证件号码</span>
+        </div>
+        <div class="field" id="f-name">
+          <label>姓名 *</label>
+          <input id="inp-name" type="text" placeholder="张三"/>
+          <span class="err-msg">请输入姓名</span>
+        </div>
+        <div class="toggle-group">
+          <label class="main-label">户籍地是否深圳</label>
+          <label class="toggle">
+            <input type="checkbox" id="inp-domicile" checked/>
+            <div class="toggle-knob"></div>
+            <span class="toggle-text" id="lbl-domicile">是</span>
+          </label>
+        </div>
+        <div class="toggle-group">
+          <label class="main-label">是否临近退休（≤5年）</label>
+          <label class="toggle">
+            <input type="checkbox" id="inp-near-ret"/>
+            <div class="toggle-knob"></div>
+            <span class="toggle-text" id="lbl-near-ret">否</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 参保记录 -->
+      <div class="form-section-label" style="margin-top:24px"><span class="material-icons-round">history_edu</span>失业保险参保记录</div>
+      <hr class="form-section-divider"/>
+      <div class="form-grid">
+        <div class="field" id="f-paid">
+          <label>累计缴费月数 *</label>
+          <input id="inp-paid" type="number" min="0" max="600" placeholder="36"/>
+          <span class="err-msg">请输入缴费月数（≥0）</span>
+        </div>
+        <div class="field" id="f-remain">
+          <label>剩余领取月数 *</label>
+          <input id="inp-remain" type="number" min="0" max="24" placeholder="18"/>
+          <span class="err-msg">请输入剩余月数（≥0）</span>
+        </div>
+        <div class="toggle-group">
+          <label class="main-label">最后参保地是否深圳</label>
+          <label class="toggle">
+            <input type="checkbox" id="inp-last-sz" checked/>
+            <div class="toggle-knob"></div>
+            <span class="toggle-text" id="lbl-last-sz">是</span>
+          </label>
+        </div>
+        <div class="field">
+          <label>停保原因 *</label>
+          <select id="inp-stop">
+            <option value="CONTRACT_EXPIRED">合同期满</option>
+            <option value="UNIT_BANKRUPT">单位破产</option>
+            <option value="UNIT_ORDERED_CLOSE">责令关闭</option>
+            <option value="UNIT_LICENSE_REVOKED">吊销营业执照</option>
+            <option value="UNIT_DISSOLVED">单位撤销/解散</option>
+            <option value="UNIT_FIRE_FOR_FAULT">单位因过错解除合同</option>
+            <option value="UNIT_ADVANCE_NOTICE">单位提前通知解除</option>
+            <option value="UNIT_PAY_ONE_MONTH">单位支付一个月工资解除</option>
+            <option value="UNIT_LAYOFF_ARTICLE41">第41条裁减人员</option>
+            <option value="MUTUAL_AGREEMENT_UNIT_PROPOSE">协商解除（单位提出）</option>
+            <option value="WORKER_QUIT_FOR_UNIT_FAULT">劳动者因单位过错解除</option>
+            <option value="PUBLIC_UNIT_TERMINATE">事业单位解除聘用合同</option>
+            <option value="INDIVIDUAL_UNIT_CLOSED">个体工商户注销/吊销/撤销</option>
+            <option value="INDIVIDUAL_STOP_PRODUCTION">个体工商户停产停业</option>
+            <option value="VOLUNTARY_RESIGN">本人意愿辞职</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 用人单位 -->
+      <div class="form-section-label" style="margin-top:24px"><span class="material-icons-round">business</span>用人单位</div>
+      <hr class="form-section-divider"/>
+      <div class="form-grid">
+        <div class="field" id="f-uname">
+          <label>单位名称 *</label>
+          <input id="inp-uname" type="text" placeholder="ABC科技有限公司"/>
+          <span class="err-msg">请输入单位名称</span>
+        </div>
+        <div class="field">
+          <label>社会信用代码</label>
+          <input id="inp-ucode" type="text" placeholder="91440300XXXXXXXXXX"/>
+        </div>
+        <div class="field">
+          <label>单位类型 *</label>
+          <select id="inp-utype">
+            <option value="ENTERPRISE">10 — 企业</option>
+            <option value="GOVERNMENT">30 — 机关</option>
+            <option value="PUBLIC_INSTITUTION">50 — 事业单位</option>
+            <option value="PUBLIC_FULL_FUND">55 — 全额拨款事业单位</option>
+            <option value="PUBLIC_PARTIAL_FUND">56 — 差额拨款事业单位</option>
+            <option value="PUBLIC_SELF_FUND">57 — 自收自支事业单位</option>
+            <option value="SOCIAL_ORGANIZATION">70 — 社会团体</option>
+            <option value="INDIVIDUAL_BUSINESS">81 — 个体工商户（有雇工的）</option>
+            <option value="LAW_FIRM">82 — 律师事务所</option>
+            <option value="OTHER">99 — 其他</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 失业登记 -->
+      <div class="form-section-label" style="margin-top:24px"><span class="material-icons-round">how_to_reg</span>失业登记</div>
+      <hr class="form-section-divider"/>
+      <div class="form-grid">
+        <div class="toggle-group">
+          <label class="main-label">失业登记是否有效</label>
+          <label class="toggle">
+            <input type="checkbox" id="inp-reg" checked/>
+            <div class="toggle-knob"></div>
+            <span class="toggle-text" id="lbl-reg">有效</span>
+          </label>
+        </div>
+        <div class="field">
+          <label>登记日期</label>
+          <input id="inp-reg-date" type="date" value="2024-03-01"/>
+        </div>
+      </div>
+
+      <!-- 终止材料 -->
+      <div class="form-section-label" style="margin-top:24px"><span class="material-icons-round">description</span>劳动关系终止材料</div>
+      <hr class="form-section-divider"/>
+      <div class="form-grid">
+        <div class="field">
+          <label>材料类型 *</label>
+          <select id="inp-mat">
+            <option value="CONTRACT_TERMINATION_NOTICE">合同终止通知书</option>
+            <option value="COMMITMENT_LETTER">承诺书</option>
+            <option value="UNIT_CLOSURE_NOTICE">单位注销证明</option>
+            <option value="STOP_PRODUCTION_NOTICE">停产停业证明</option>
+            <option value="COURT_BANKRUPTCY_ORDER">法院破产裁定</option>
+            <option value="GOVERNMENT_ORDER">政府责令关闭文件</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>终止日期</label>
+          <input id="inp-term-date" type="date" value="2024-02-28"/>
+        </div>
+        <div class="field">
+          <label>出具单位</label>
+          <input id="inp-issuing" type="text" placeholder="ABC科技有限公司"/>
+        </div>
+      </div>
+
+      <!-- 银行账户 -->
+      <div class="form-section-label" style="margin-top:24px"><span class="material-icons-round">account_balance</span>收款银行账户</div>
+      <hr class="form-section-divider"/>
+      <div class="form-grid">
+        <div class="field">
+          <label>银行名称</label>
+          <input id="inp-bank" type="text" placeholder="中国建设银行"/>
+        </div>
+        <div class="field">
+          <label>账号</label>
+          <input id="inp-acctno" type="text" placeholder="6222021234567890"/>
+        </div>
+        <div class="field">
+          <label>户名</label>
+          <input id="inp-acctname" type="text" placeholder="张三"/>
+        </div>
+      </div>
+
+      <!-- Submit row -->
+      <div class="submit-row">
+        <button class="btn-primary" id="submit-btn" onclick="submitApplicant()">
+          <span class="material-icons-round">send</span>
+          <span class="btn-label">提交审查</span>
+          <div class="spinner"></div>
+        </button>
+        <button class="btn-secondary" onclick="resetForm()">
+          <span class="material-icons-round">refresh</span>重置
+        </button>
+        <span id="submit-status" style="font-size:13px;color:var(--md-on-surface-variant)"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit result panel -->
+  <div id="submit-result-panel" style="display:none">
+    <div id="submit-alert"></div>
+
+    <div id="submit-section-phase1">
+      <div class="section-header">
+        <div class="section-icon ph1"><span class="material-icons-round">group_add</span></div>
+        <div>
+          <div class="section-title">Phase 1 — 录入信息确认</div>
+          <div class="section-sub">已提交至 Drools Working Memory</div>
+        </div>
+      </div>
+      <div class="cards-grid" id="submit-applicant-grid"></div>
+    </div>
+
+    <div id="submit-section-phase2" style="margin-top:32px">
+      <div class="section-header">
+        <div class="section-icon ph2"><span class="material-icons-round">terminal</span></div>
+        <div>
+          <div class="section-title">Phase 2 — 规则引擎执行日志</div>
+          <div class="section-sub">本次申请人 fireAllRules() 输出</div>
+        </div>
+      </div>
+      <div class="log-card">
+        <div class="log-toolbar">
+          <div class="dot-row"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+          <span style="color:#888;font-size:12px;font-family:monospace">drools-rule-engine — stdout</span>
+        </div>
+        <div id="submit-log-body" style="max-height:300px;overflow-y:auto;font-family:'Roboto Mono','Consolas',monospace;font-size:13px;line-height:1.65;"></div>
+      </div>
+    </div>
+
+    <div id="submit-section-phase3" style="margin-top:32px">
+      <div class="section-header">
+        <div class="section-icon ph3"><span class="material-icons-round">fact_check</span></div>
+        <div>
+          <div class="section-title">Phase 3 — 审查结论</div>
+          <div class="section-sub">规则引擎最终判定结果</div>
+        </div>
+      </div>
+      <div class="result-cards" id="submit-result-grid"></div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script>
+/* ── Tab switching ──────────────────────────────────────── */
+function switchTab(t) {
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + t).classList.add('active');
+  document.getElementById('panel-' + t).classList.add('active');
+}
+
+/* ── Toggle labels ──────────────────────────────────────── */
+function bindToggle(cbId, lblId, trueText, falseText) {
+  const cb = document.getElementById(cbId);
+  const lbl = document.getElementById(lblId);
+  const update = () => lbl.textContent = cb.checked ? trueText : falseText;
+  cb.addEventListener('change', update);
+  update();
+}
+bindToggle('inp-domicile', 'lbl-domicile', '是', '否');
+bindToggle('inp-near-ret', 'lbl-near-ret', '是', '否');
+bindToggle('inp-last-sz',  'lbl-last-sz',  '是', '否');
+bindToggle('inp-reg',      'lbl-reg',      '有效', '无效');
+
+/* ── Helpers ──────────────────────────────────────────────── */
+const $id = id => document.getElementById(id);
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function stopReasonLabel(r) {
+  const map = { CONTRACT_EXPIRED:'合同期满', UNIT_BANKRUPT:'单位破产', UNIT_ORDERED_CLOSE:'责令关闭', UNIT_LICENSE_REVOKED:'吊销执照', UNIT_DISSOLVED:'单位撤销', UNIT_FIRE_FOR_FAULT:'单位因过错解除', UNIT_ADVANCE_NOTICE:'单位提前通知', UNIT_PAY_ONE_MONTH:'支付一月工资', UNIT_LAYOFF_ARTICLE41:'第41条裁员', MUTUAL_AGREEMENT_UNIT_PROPOSE:'协商解除(单位提出)', WORKER_QUIT_FOR_UNIT_FAULT:'劳动者因单位过错解除', PUBLIC_UNIT_TERMINATE:'事业单位解除聘用', INDIVIDUAL_UNIT_CLOSED:'个体工商户注销', INDIVIDUAL_STOP_PRODUCTION:'个体工商户停产', VOLUNTARY_RESIGN:'本人意愿辞职' };
+  return map[r] || r;
+}
+function materialTypeLabel(m) {
+  const map = { CONTRACT_TERMINATION_NOTICE:'合同终止通知书', COMMITMENT_LETTER:'承诺书', UNIT_CLOSURE_NOTICE:'单位注销证明', STOP_PRODUCTION_NOTICE:'停产停业证明', COURT_BANKRUPTCY_ORDER:'法院破产裁定', GOVERNMENT_ORDER:'政府责令关闭文件' };
+  return map[m] || m;
+}
+function rejectReasonLabel(raw) {
+  const map = { 'domicile-not-shenzhen':'户籍地非深圳', 'last-insured-not-shenzhen':'最后参保地非深圳', 'insufficient-paid-months':'缴费月数不足', 'no-remaining-months':'无剩余领取期限', 'registration-invalid':'失业登记无效' };
+  if (!raw) return [];
+  return raw.split(';').map(s=>s.trim()).filter(Boolean).map(s => {
+    if (s.startsWith('voluntary-stop')) { const m=s.match(/\(([^)]+)\)/); return '自愿停保'+(m?'（'+stopReasonLabel(m[1])+'）':''); }
+    return map[s] || s;
+  });
+}
+
+/* ── Stepper ─────────────────────────────────────────────── */
+function setStep(n) {
+  for (let i=1;i<=3;i++) {
+    const el=$id('step'+i); el.classList.remove('active','done');
+    if(i<n) el.classList.add('done'); if(i===n) el.classList.add('active');
+  }
+}
+
+/* ── Build applicant card ────────────────────────────────── */
+function buildApplicantCard(a) {
+  const bc = (v,t,f) => `<span class="chip ${v?'chip-green':'chip-red'}">${v?t:f}</span>`;
+  return `
+  <div class="card">
+    <div class="card-header">
+      <div class="avatar"><span class="material-icons-round">person</span></div>
+      <div><div class="card-title">${esc(a.name)}</div><div class="card-subtitle">${esc(a.id)}</div></div>
+    </div>
+    <div class="card-body">
+      <div class="info-row"><span class="info-label">户籍深圳</span><span class="info-value">${bc(a.domicileShenzhen,'是','否')}</span><span style="flex:1"></span><span class="info-label">临近退休</span><span class="info-value">${bc(a.nearRetirement,'是','否')}</span></div>
+      <div class="info-row"><span class="info-label">用人单位</span><span class="info-value">${esc(a.unitName)}</span></div>
+      <div class="info-row"><span class="info-label">单位类型</span><span class="info-value"><span class="chip chip-blue">${esc(a.unitType)} ${esc(a.unitTypeLabel)}</span></span></div>
+      <div class="info-row"><span class="info-label">缴费月数</span><span class="info-value"><strong>${a.paidMonths}</strong> 月</span><span style="flex:1"></span><span class="info-label">剩余月数</span><span class="info-value"><strong>${a.remainingMonths}</strong> 月</span></div>
+      <div class="info-row"><span class="info-label">参保地深圳</span><span class="info-value">${bc(a.lastInsuredShenzhen,'是','否')}</span><span style="flex:1"></span><span class="info-label">失业登记</span><span class="info-value">${bc(a.registered,'有效','无效')}</span></div>
+      <div class="info-row"><span class="info-label">停保原因</span><span class="info-value"><span class="chip ${a.stopReason==='VOLUNTARY_RESIGN'?'chip-red':'chip-teal'}">${stopReasonLabel(a.stopReason)}</span></span></div>
+      <div class="info-row"><span class="info-label">终止材料</span><span class="info-value">${materialTypeLabel(a.materialType)}</span></div>
+      <div class="info-row"><span class="info-label">收款银行</span><span class="info-value">${esc(a.bankName)} · ${esc(a.accountNo)}</span></div>
+    </div>
+  </div>`;
+}
+
+/* ── Build result card ───────────────────────────────────── */
+function buildResultCard(r) {
+  const isOk = r.approved;
+  const reasons = rejectReasonLabel(r.rejectReason);
+  const bankHtml = isOk && r.bankName ? `<div class="bank-box"><span class="material-icons-round">account_balance</span><div class="bank-info"><div class="bank-name">${esc(r.bankName)} · ${esc(r.accountName)}</div><div class="bank-no">${esc(r.accountNo)}</div></div></div>` : '';
+  const rejectHtml = !isOk ? `<div class="reject-box"><div class="reject-label">拒绝原因</div>${reasons.map(s=>`<div class="reject-reason-item">${esc(s)}</div>`).join('')}</div>` : '';
+  return `
+  <div class="result-card ${isOk?'approved':'rejected'}">
+    <div class="result-header">
+      <div class="status-icon ${isOk?'ok':'err'}"><span class="material-icons-round">${isOk?'check_circle':'cancel'}</span></div>
+      <div><div class="card-title">${esc(r.applicantName)}</div><div class="card-subtitle">${esc(r.applicantId)}</div></div>
+    </div>
+    <div class="result-body">
+      <div class="verdict ${isOk?'ok':'err'}"><span class="material-icons-round" style="font-size:18px">${isOk?'check':'close'}</span>${isOk?'资格审查通过 — 准予申领':'资格审查未通过'}</div>
+      <div class="info-row"><span class="info-label">适用情形</span><span class="info-value"><span class="chip chip-amber">${esc(r.scenario)}</span></span></div>
+      ${bankHtml}${rejectHtml}
+    </div>
+  </div>`;
+}
+
+/* ── Render log ──────────────────────────────────────────── */
+function renderLog(lines) {
+  return lines.map(line => {
+    let cls='log-default';
+    if(line.includes('[RULE][PASS]')) cls='log-pass';
+    else if(line.includes('[RULE][REJECTED]')) cls='log-reject';
+    else if(/^\s+(applicant|unit|insurance|reg|material|reason)\s*:/.test(line)) cls='log-detail';
+    return `<div class="log-line ${cls}">${esc(line)}</div>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════════
+   TAB 1 — Demo Review
+══════════════════════════════════════════════════ */
+async function runReview() {
+  const btn=$id('run-btn');
+  btn.classList.add('btn-loading'); btn.disabled=true;
+  $id('placeholder').style.display='none';
+  $id('section-phase1').style.display='none';
+  $id('section-phase2').style.display='none';
+  $id('section-phase3').style.display='none';
+  try {
+    const resp = await fetch('/api/review');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    $id('version-badge').textContent='Rule v'+data.ruleVersion;
+    $id('hero-version').textContent='v'+data.ruleVersion;
+
+    setStep(1);
+    $id('section-phase1').style.display='';
+    $id('applicant-grid').innerHTML=data.applicants.map(buildApplicantCard).join('');
+    await delay(400);
+
+    setStep(2);
+    $id('section-phase2').style.display='';
+    $id('log-body').innerHTML=renderLog(data.engineLog);
+    $id('log-body').scrollTop=0;
+    await delay(400);
+
+    setStep(3);
+    $id('section-phase3').style.display='';
+    const total=data.results.length, ok=data.results.filter(r=>r.approved).length, fail=total-ok;
+    $id('summary-bar').innerHTML=`
+      <div class="summary-chip total"><span class="material-icons-round" style="color:var(--md-primary)">people</span><div><div class="num">${total}</div><div>申请人</div></div></div>
+      <div class="summary-chip ok"><span class="material-icons-round" style="color:var(--md-success)">check_circle</span><div><div class="num">${ok}</div><div>通过</div></div></div>
+      <div class="summary-chip fail"><span class="material-icons-round" style="color:var(--md-error)">cancel</span><div><div class="num">${fail}</div><div>未通过</div></div></div>`;
+    $id('result-grid').innerHTML=data.results.map(buildResultCard).join('');
+    $id('section-phase1').scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(e) {
+    alert('请求失败：'+e.message);
+    $id('placeholder').style.display='';
+  } finally {
+    btn.classList.remove('btn-loading'); btn.disabled=false;
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   TAB 2 — Submit Applicant
+══════════════════════════════════════════════════ */
+function validate() {
+  let ok=true;
+  const required=[['f-id','inp-id'],['f-name','inp-name'],['f-paid','inp-paid'],['f-remain','inp-remain'],['f-uname','inp-uname']];
+  required.forEach(([fid,iid])=>{
+    const f=$id(fid), inp=$id(iid);
+    const val=inp.value.trim();
+    if(!val||(inp.type==='number'&&(isNaN(Number(val))||Number(val)<0))) {
+      f.classList.add('invalid'); ok=false;
+    } else { f.classList.remove('invalid'); }
+  });
+  return ok;
+}
+
+async function submitApplicant() {
+  if(!validate()) return;
+  const btn=$id('submit-btn');
+  btn.classList.add('btn-loading'); btn.disabled=true;
+  $id('submit-status').textContent='提交中…';
+  $id('submit-result-panel').style.display='none';
+
+  const payload = {
+    id:             $id('inp-id').value.trim(),
+    name:           $id('inp-name').value.trim(),
+    domicileShenzhen: $id('inp-domicile').checked,
+    nearRetirement: $id('inp-near-ret').checked,
+    paidMonths:     Number($id('inp-paid').value),
+    remainingMonths:Number($id('inp-remain').value),
+    lastInsuredShenzhen: $id('inp-last-sz').checked,
+    stopReason:     $id('inp-stop').value,
+    unitCreditCode: $id('inp-ucode').value.trim(),
+    unitName:       $id('inp-uname').value.trim(),
+    unitType:       $id('inp-utype').value,
+    registered:     $id('inp-reg').checked,
+    registrationDate: $id('inp-reg-date').value,
+    materialType:   $id('inp-mat').value,
+    terminationDate:$id('inp-term-date').value,
+    issuingUnit:    $id('inp-issuing').value.trim(),
+    bankName:       $id('inp-bank').value.trim(),
+    accountNo:      $id('inp-acctno').value.trim(),
+    accountName:    $id('inp-acctname').value.trim(),
+    scenario:       'custom'
+  };
+
+  try {
+    const resp = await fetch('/api/review', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+
+    $id('submit-result-panel').style.display='';
+    const r = data.results[0];
+    const isOk = r && r.approved;
+    $id('submit-alert').innerHTML=`
+      <div class="alert ${isOk?'success':'error'}">
+        <span class="material-icons-round">${isOk?'check_circle':'cancel'}</span>
+        <span>${isOk?'资格审查通过，准予申领失业保险金':'资格审查未通过，不予申领'}</span>
+      </div>`;
+
+    $id('submit-applicant-grid').innerHTML=data.applicants.map(buildApplicantCard).join('');
+    $id('submit-log-body').innerHTML=renderLog(data.engineLog);
+    $id('submit-result-grid').innerHTML=data.results.map(buildResultCard).join('');
+    $id('submit-status').textContent='';
+    $id('submit-result-panel').scrollIntoView({behavior:'smooth',block:'start'});
+  } catch(e) {
+    $id('submit-alert').innerHTML=`<div class="alert error"><span class="material-icons-round">error</span><span>请求失败：${esc(e.message)}</span></div>`;
+    $id('submit-result-panel').style.display='';
+    $id('submit-status').textContent='';
+  } finally {
+    btn.classList.remove('btn-loading'); btn.disabled=false;
+  }
+}
+
+function resetForm() {
+  $id('inp-id').value=''; $id('inp-name').value='';
+  $id('inp-domicile').checked=true; $id('lbl-domicile').textContent='是';
+  $id('inp-near-ret').checked=false; $id('lbl-near-ret').textContent='否';
+  $id('inp-paid').value=''; $id('inp-remain').value='';
+  $id('inp-last-sz').checked=true; $id('lbl-last-sz').textContent='是';
+  $id('inp-stop').value='CONTRACT_EXPIRED';
+  $id('inp-ucode').value=''; $id('inp-uname').value=''; $id('inp-utype').value='ENTERPRISE';
+  $id('inp-reg').checked=true; $id('lbl-reg').textContent='有效';
+  $id('inp-reg-date').value='2024-03-01';
+  $id('inp-mat').value='CONTRACT_TERMINATION_NOTICE';
+  $id('inp-term-date').value='2024-02-28';
+  $id('inp-issuing').value=''; $id('inp-bank').value='';
+  $id('inp-acctno').value=''; $id('inp-acctname').value='';
+  document.querySelectorAll('.field.invalid').forEach(f=>f.classList.remove('invalid'));
+  $id('submit-result-panel').style.display='none';
+  $id('submit-status').textContent='';
+}
+
+function delay(ms) { return new Promise(r=>setTimeout(r,ms)); }
+</script>
+</body>
+</html>
