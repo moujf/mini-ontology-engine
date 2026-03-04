@@ -38,6 +38,42 @@ public class EligibilityResult extends OntologyObject {
     }
 
     /**
+     * 构造审查通过结果，携带情形代码和中文说明（本体论语义化版本）。
+     * <p>
+     * 由重构后的 DRL 规则使用，id 命名约定保持 "{personId}-ELIG" 以兼容测试。
+     * </p>
+     *
+     * @param personId    申请人证件号码
+     * @param scenarioCode 情形代码，如 "ELIGIBLE_SCENARIO_1"
+     * @param description  中文描述，如 "符合一般职工申领条件"
+     */
+    public EligibilityResult(String personId, String scenarioCode, String description) {
+        super(personId + "-ELIG", "EligibilityResult");
+        setState("NEW");
+        setAttr("rejectReason",  "");
+        setAttr("scenarioCode",  scenarioCode);
+        setAttr("description",   description);
+    }
+
+    /**
+     * 获取情形代码（重构后 DRL 写入）。
+     *
+     * @return 情形代码，如 "ELIGIBLE_SCENARIO_1"
+     */
+    public String getScenarioCode() {
+        return (String) getAttr("scenarioCode");
+    }
+
+    /**
+     * 获取中文描述。
+     *
+     * @return 描述文本
+     */
+    public String getDescription() {
+        return (String) getAttr("description");
+    }
+
+    /**
      * 获取拒绝原因。审查通过时返回空字符串。
      *
      * @return 拒绝原因

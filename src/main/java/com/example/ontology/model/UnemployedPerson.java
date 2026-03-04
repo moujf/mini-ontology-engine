@@ -50,11 +50,56 @@ public class UnemployedPerson extends OntologyObject {
     public boolean isDomicileShenzhen() { return (boolean) getAttr("domicileShenzhen"); }
 
     /**
-     * 是否临近退休（距法定退休年龄不足5年）。
-     * 用于规则引擎判断情形三。
+     * 是否临近退休（无参版本，使用构造时传入的预计算标记）。
+     * 用于规则引擎中快速判定情形三，不依赖政策参数对象。
      *
      * @return true 表示临近退休
      */
     public boolean isNearRetirement() { return (boolean) getAttr("nearRetirement"); }
+
+    /**
+     * 是否临近退休（动态参数版本，基于 {@link UnemploymentPolicy} 政策参数判定）。
+     * <p>
+     * 当申请人预存了年龄信息（{@code age} 属性）时，通过政策参数动态计算；
+     * 否则回退到构造时传入的静态标记，保持向后兼容。
+     * </p>
+     *
+     * @param policy 当前生效的政策参数，包含法定退休年龄和临近退休年限
+     * @return true 表示距法定退休年龄不足 {@code policy.getNearRetirementYears()} 年
+     */
+    public boolean isNearRetirement(UnemploymentPolicy policy) {
+        Object ageAttr = getAttr("age");
+        if (ageAttr == null) {
+            // 无年龄属性时回退到静态标记
+            return isNearRetirement();
+        }
+        int age = (int) ageAttr;
+        Object genderAttr = getAttr("gender");
+        // 默认按男性退休年龄；gender="F" 时使用女性退休年龄
+        int retirementAge = ("F".equals(genderAttr))
+                ? policy.getFemaleRetirementAge()
+                : policy.getMaleRetirementAge();
+        return (retirementAge - age) <= policy.getNearRetirementYears();
+    }
+
+    /**
+     * 是否拥有剩余失业保险领取期限（由关联 InsuranceRecord 预计算后存入）。
+     * 用于规则引擎的 eval 条件，避免在 DRL 中直接访问 InsuranceRecord 的字段。
+     *
+     * @return true 表示有剩余可领月数
+     */
+    public boolean hasRemainingEntitlement() {
+        Object val = getAttr("hasRemainingEntitlement");
+        return val != null && (boolean) val;
+    }
+
+    /**
+     * 设置是否拥有剩余领取期限标记（由外部服务在组装事实时写入）。
+     *
+     * @param hasRemaining true 表示有剩余可领月数
+     */
+    public void setHasRemainingEntitlement(boolean hasRemaining) {
+        setAttr("hasRemainingEntitlement", hasRemaining);
+    }
 }
 

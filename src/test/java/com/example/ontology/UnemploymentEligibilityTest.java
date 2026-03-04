@@ -11,10 +11,13 @@ import com.example.ontology.model.InsuranceRecord.StopReason;
 import com.example.ontology.model.TerminationMaterial;
 import com.example.ontology.model.TerminationMaterial.MaterialType;
 import com.example.ontology.model.UnemployedPerson;
+import com.example.ontology.model.UnemploymentPolicy;
 import com.example.ontology.model.UnemploymentRegistration;
+import com.example.ontology.model.UnemploymentTimeline;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -77,7 +80,10 @@ class UnemploymentEligibilityTest {
         return r;
     }
 
-    /** 快捷方法：插入一位申请人的全部关联实体并触发规则 */
+    /**
+     * 快捷方法：单条参保记录场景。
+     * 自动构建 UnemploymentTimeline（单记录，stopDate=今天），插入所有事实并触发规则。
+     */
     private static RuleEngine runApplicant(UnemployedPerson person,
                                            InsuranceRecord ins,
                                            EmployerUnit unit,
@@ -85,8 +91,35 @@ class UnemploymentEligibilityTest {
                                            TerminationMaterial mat,
                                            BankAccount bank) {
         RuleEngine re = OntologyRuleVersionManager.getEngine("unemployment", "1.0");
+        re.session().insert(new UnemploymentPolicy());
         re.session().insert(person);
         re.session().insert(ins);
+        // 自动从单条记录构建时间线
+        re.session().insert(new UnemploymentTimeline(person.getId(), List.of(ins)));
+        re.session().insert(unit);
+        re.session().insert(reg);
+        re.session().insert(mat);
+        re.session().insert(bank);
+        re.fire();
+        return re;
+    }
+
+    /**
+     * 快捷方法：多条参保记录场景，显式传入时间线。
+     * 调用方负责构造 UnemploymentTimeline 并将所有记录提前插入工作内存。
+     */
+    private static RuleEngine runApplicantWithTimeline(UnemployedPerson person,
+                                                       List<InsuranceRecord> records,
+                                                       UnemploymentTimeline timeline,
+                                                       EmployerUnit unit,
+                                                       UnemploymentRegistration reg,
+                                                       TerminationMaterial mat,
+                                                       BankAccount bank) {
+        RuleEngine re = OntologyRuleVersionManager.getEngine("unemployment", "1.0");
+        re.session().insert(new UnemploymentPolicy());
+        re.session().insert(person);
+        records.forEach(r -> re.session().insert(r));
+        re.session().insert(timeline);
         re.session().insert(unit);
         re.session().insert(reg);
         re.session().insert(mat);
@@ -273,5 +306,80 @@ class UnemploymentEligibilityTest {
         EligibilityResult r = assertRejected(re, id);
         assertTrue(r.getRejectReason().contains("domicile-not-shenzhen"),
                 "Reject reason should mention domicile-not-shenzhen, was: " + r.getRejectReason());
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // 时间线核心场景：多段参保记录，规则应以最新一段为判定依据
+    // ──────────────────────────────────────────────────────────
+
+    @Test
+    @DisplayName("时间线 APPROVED — 两段参保记录，最新段在深圳且合同期满，累计≥12月")
+    void timeline_multiRecord_approved() {
+        String id = "440101199001020001";
+        // 第一段：2018年在外省参保8个月，本人主动辞职
+        InsuranceRecord rec1 = new InsuranceRecord(
+            id + "-INS-1", id, 8, 0, false,
+            StopReason.VOLUNTARY_RESIGN,
+            LocalDate.of(2019, 3, 31)
+        );
+        // 第二段（最新）：2022年在深圳参保36个月，合同期满
+        InsuranceRecord rec2 = new InsuranceRecord(
+            id + "-INS-2", id, 36, 18, true,
+            StopReason.CONTRACT_EXPIRED,
+            LocalDate.of(2025, 6, 30)
+        );
+        // 时间线自动以 rec2（stopDate 最大）为 latestRecord，totalMonths=44
+        UnemploymentTimeline timeline = new UnemploymentTimeline(id, List.of(rec1, rec2));
+
+        // 验证时间线预计算结果
+        assertEquals(rec2, timeline.getLatestRecord(), "latestRecord 应为 stopDate 最大的 rec2");
+        assertEquals(44, timeline.getTotalMonths(),    "totalMonths 应为 8+36=44");
+
+        RuleEngine re = runApplicantWithTimeline(
+            new UnemployedPerson(id, "MultiRecordUser", true, false),
+            List.of(rec1, rec2),
+            timeline,
+            new EmployerUnit(id, "91440300MA5XXXXXMR", "SZ Future Tech", UnitType.ENTERPRISE),
+            new UnemploymentRegistration(id, true, "2025-07-10"),
+            new TerminationMaterial(id, MaterialType.CONTRACT_TERMINATION_NOTICE, "2025-06-30", "SZ Future Tech"),
+            new BankAccount(id, "6222020001000101", "CMB", "MultiRecordUser")
+        );
+        EligibilityResult r = assertApproved(re, id);
+        assertEquals("ELIGIBLE_SCENARIO_1", r.getScenarioCode(),
+                "应命中情形一（累计缴费44月≥12，最新段深圳合同期满）");
+    }
+
+    @Test
+    @DisplayName("时间线 REJECTED — 最新段为主动辞职，即使历史段在深圳也应拒绝")
+    void timeline_multiRecord_latestVoluntaryReject() {
+        String id = "440101199001020002";
+        // 第一段（较早）：深圳，合同期满，缴费24月
+        InsuranceRecord rec1 = new InsuranceRecord(
+            id + "-INS-1", id, 24, 12, true,
+            StopReason.CONTRACT_EXPIRED,
+            LocalDate.of(2022, 12, 31)
+        );
+        // 第二段（最新）：深圳，但本人主动辞职
+        InsuranceRecord rec2 = new InsuranceRecord(
+            id + "-INS-2", id, 6, 0, true,
+            StopReason.VOLUNTARY_RESIGN,
+            LocalDate.of(2025, 8, 31)
+        );
+        UnemploymentTimeline timeline = new UnemploymentTimeline(id, List.of(rec1, rec2));
+
+        assertEquals(rec2, timeline.getLatestRecord(), "latestRecord 应为 stopDate 最大的 rec2");
+
+        RuleEngine re = runApplicantWithTimeline(
+            new UnemployedPerson(id, "VolunteerQuitter", true, false),
+            List.of(rec1, rec2),
+            timeline,
+            new EmployerUnit(id, "91440300MA5XXXXXVQ", "SZ Old Corp", UnitType.ENTERPRISE),
+            new UnemploymentRegistration(id, true, "2025-09-01"),
+            new TerminationMaterial(id, MaterialType.COMMITMENT_LETTER, "2025-08-31", ""),
+            new BankAccount(id, "6222020002000202", "ICBC", "VolunteerQuitter")
+        );
+        EligibilityResult r = assertRejected(re, id);
+        assertTrue(r.getRejectReason().contains("voluntary-stop"),
+                "最新段主动辞职，应拒绝并说明 voluntary-stop，was: " + r.getRejectReason());
     }
 }

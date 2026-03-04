@@ -1,23 +1,17 @@
 package com.example.ontology.model;
 
+import java.time.LocalDate;
+
 /**
- * 失业保险参保记录。
+ * 失业保险参保记录（单段）。
  * <p>
- * 记录申请人在深圳的失业保险缴费情况、剩余可领月数及系统记录的停保原因。
- * 停保原因（{@link StopReason}）由社保系统在停保时写入，是判断是否属于
- * 非本人意愿离职的第一手数据来源。
+ * 记录申请人在深圳的一段连续参保缴费情况、停保日期及停保原因。
+ * 一位申请人可能有多段参保记录（多次就业/离职），由
+ * {@link UnemploymentTimeline} 负责聚合，并通过 {@code stopDate} 排序
+ * 确定 {@code latestRecord}（最后一段）。
  * </p>
  * <p>
  * 对应操作规程校验规则：缴费月数 ≥ 12，或不满12个月但有剩余领取期限。
- * </p>
- * <p>
- * <b>申领情形（ApplyType）</b>不在本实体存储，而是由规则引擎根据以下实体组合推断：
- * <ul>
- *   <li>情形一：单位类型 ≠ 81，缴费月 ≥ 12</li>
- *   <li>情形二：单位类型 ≠ 81，缴费月 &lt; 12 但剩余月 &gt; 0</li>
- *   <li>情形三：临近退休（由 {@link UnemployedPerson} 年龄字段判断，暂外部传入标记）</li>
- *   <li>情形四：单位类型 = 81（{@link EmployerUnit#isIndividualBusiness()}）</li>
- * </ul>
  * </p>
  */
 public class InsuranceRecord extends OntologyObject {
@@ -60,7 +54,34 @@ public class InsuranceRecord extends OntologyObject {
     }
 
     /**
-     * 构造参保记录。
+     * 构造参保记录（含停保日期，用于时间线排序）。
+     *
+     * @param recordId            记录唯一标识（如 "{applicantId}-INS-1"）
+     * @param applicantId         关联申请人证件号码
+     * @param paidMonths          本段失业保险缴费月数
+     * @param remainingMonths     可领取失业保险待遇剩余月数（0 表示无剩余）
+     * @param lastInsuredShenzhen 本段参保地是否为深圳
+     * @param stopReason          系统停保原因
+     * @param stopDate            停保日期，用于 {@link UnemploymentTimeline} 排序确定最后参保段
+     */
+    public InsuranceRecord(String recordId,
+                           String applicantId,
+                           int paidMonths,
+                           int remainingMonths,
+                           boolean lastInsuredShenzhen,
+                           StopReason stopReason,
+                           LocalDate stopDate) {
+        super(recordId, "InsuranceRecord");
+        setAttr("applicantId",         applicantId);
+        setAttr("paidMonths",          paidMonths);
+        setAttr("remainingMonths",     remainingMonths);
+        setAttr("lastInsuredShenzhen", lastInsuredShenzhen);
+        setAttr("stopReason",          stopReason);
+        setAttr("stopDate",            stopDate);
+    }
+
+    /**
+     * 向后兼容构造器（单记录场景，stopDate 默认今天）。
      *
      * @param applicantId         关联申请人证件号码
      * @param paidMonths          失业保险累计缴费月数
@@ -73,32 +94,66 @@ public class InsuranceRecord extends OntologyObject {
                            int remainingMonths,
                            boolean lastInsuredShenzhen,
                            StopReason stopReason) {
-        super(applicantId + "-INS", "InsuranceRecord");
-        setAttr("applicantId",         applicantId);
-        setAttr("paidMonths",          paidMonths);
-        setAttr("remainingMonths",     remainingMonths);
-        setAttr("lastInsuredShenzhen", lastInsuredShenzhen);
-        setAttr("stopReason",          stopReason);
+        this(applicantId + "-INS",
+             applicantId,
+             paidMonths,
+             remainingMonths,
+             lastInsuredShenzhen,
+             stopReason,
+             LocalDate.now());
     }
 
     /** @return 关联申请人证件号码 */
     public String getApplicantId() { return (String) getAttr("applicantId"); }
 
-    /** @return 累计缴费月数 */
+    /** @return 本段缴费月数 */
     public int getPaidMonths() { return (int) getAttr("paidMonths"); }
 
     /** @return 可领取失业保险待遇剩余月数 */
     public int getRemainingMonths() { return (int) getAttr("remainingMonths"); }
 
-    /** @return 最后参保地是否为深圳 */
+    /** @return 本段参保地是否为深圳 */
     public boolean isLastInsuredShenzhen() { return (boolean) getAttr("lastInsuredShenzhen"); }
 
-    /**
-     * 系统停保原因，由社保系统写入。
-     *
-     * @return 停保原因枚举值
-     */
+    /** @return 系统停保原因 */
     public StopReason getStopReason() { return (StopReason) getAttr("stopReason"); }
+
+    /**
+     * 停保日期，由 {@link UnemploymentTimeline} 用于时序排序。
+     *
+     * @return 停保日期
+     */
+    public LocalDate getStopDate() { return (LocalDate) getAttr("stopDate"); }
+
+    /**
+     * 停保原因是否属于非本人意愿（语义化布尔属性）。
+     * 覆盖操作规程中 14 种合法非本人意愿停保原因。
+     *
+     * @return true 表示停保原因属于非本人意愿
+     */
+    public boolean isInvoluntaryStop() {
+        StopReason reason = getStopReason();
+        if (reason == null) return false;
+        switch (reason) {
+            case CONTRACT_EXPIRED:
+            case UNIT_BANKRUPT:
+            case UNIT_ORDERED_CLOSE:
+            case UNIT_LICENSE_REVOKED:
+            case UNIT_DISSOLVED:
+            case UNIT_FIRE_FOR_FAULT:
+            case UNIT_ADVANCE_NOTICE:
+            case UNIT_PAY_ONE_MONTH:
+            case UNIT_LAYOFF_ARTICLE41:
+            case MUTUAL_AGREEMENT_UNIT_PROPOSE:
+            case WORKER_QUIT_FOR_UNIT_FAULT:
+            case PUBLIC_UNIT_TERMINATE:
+            case INDIVIDUAL_UNIT_CLOSED:
+            case INDIVIDUAL_STOP_PRODUCTION:
+                return true;
+            default:
+                return false;
+        }
+    }
 
     /**
      * 是否满足基本缴费条件。
@@ -110,4 +165,3 @@ public class InsuranceRecord extends OntologyObject {
         return getPaidMonths() >= 12 || getRemainingMonths() > 0;
     }
 }
-
