@@ -10,6 +10,9 @@ public class EligibilityResultDto {
     private String rejectReason;
     // 适用情形描述，由 service 层推断
     private String scenario;
+    // 延迟退休信息（有出生日期时由 service 层计算后写入）
+    private String retirementDate;   // 法定退休日期，格式 "yyyy-MM"，无出生日期时为 null
+    private Boolean nearRetirement;  // 是否临近退休，无出生日期时为 null
     // 发放账户信息（仅 approved 时有值）
     private String bankName;
     private String accountNo;
@@ -29,6 +32,12 @@ public class EligibilityResultDto {
 
     public String getScenario() { return scenario; }
     public void setScenario(String v) { this.scenario = v; }
+
+    public String getRetirementDate() { return retirementDate; }
+    public void setRetirementDate(String v) { this.retirementDate = v; }
+
+    public Boolean getNearRetirement() { return nearRetirement; }
+    public void setNearRetirement(Boolean v) { this.nearRetirement = v; }
 
     public String getBankName() { return bankName; }
     public void setBankName(String v) { this.bankName = v; }

@@ -170,16 +170,22 @@ Mini Ontology Engine 是一个**轻量级本体规则引擎**，模拟 Palantir 
 
 `UnemploymentEligibilityTest`（JUnit 5）覆盖 13 个场景：
 
-| 测试方法 | 预期结论 |
-|----------|---------|
-| `scenario1_approved` | 情形一通过 |
-| `scenario1_rejected_voluntaryResign` | 主动辞职 → 拒绝 |
-| `scenario2_approved` | 情形二（缴费不足有剩余期限）通过 |
-| `scenario3_approved` | 情形三（临近退休）通过 |
-| `scenario3_rejected_noRegistration` | 未办失业登记 → 拒绝 |
-| `scenario4_approved` | 情形四（个体工商户）通过 |
-| `rejected_lastInsuredNotShenzhen` | 最后参保地非深圳 → 拒绝 |
-| … 其余 6 个 | 各类边界/拒绝场景 |
+| 测试方法 | 说明 | 预期结论 |
+|----------|------|---------|
+| `scenario1_approved` | 情形一 — 企业职工，合同期满，缴费36月 | ✅ ELIG |
+| `scenario1_rejected_voluntaryResign` | 情形一 — 主动辞职（自愿停保） | ❌ NOT-ELIG |
+| `scenario2_approved` | 情形二 — 单位裁员（Article 41），缴费8月有剩余4月 | ✅ ELIG |
+| `scenario2_rejected_noRemaining` | 情形二 — 缴费不满12月且无剩余领取期限 | ❌ NOT-ELIG |
+| `scenario3_approved` | 情形三 — 临近退休，事业单位，合同期满，缴费240月（静态标记） | ✅ ELIG |
+| `scenario3_rejected_noRegistration` | 情形三 — 临近退休，但未办失业登记 | ❌ NOT-ELIG |
+| `scenario4_approved_unitClosed` | 情形四 — 个体工商户，单位注销 | ✅ ELIG |
+| `scenario4_approved_stopProduction` | 情形四 — 个体工商户，停产停业 | ✅ ELIG |
+| `rejected_lastInsuredNotShenzhen` | 通用拒绝 — 最后参保地非深圳 | ❌ NOT-ELIG |
+| `rejected_domicileNotShenzhen` | 通用拒绝 — 户籍地非深圳 | ❌ NOT-ELIG |
+| `timeline_multiRecord_approved` | 时间线 — 两段参保记录，最新段深圳且合同期满，累计≥12月 | ✅ ELIG |
+| `timeline_multiRecord_latestVoluntaryReject` | 时间线反例 — 最新段主动辞职，即使历史段合规也应拒绝 | ❌ NOT-ELIG |
+| `scenario3_approved_dynamicRetirement_male` | 延迟退休 — 男性1966-06生，动态法定退休2026-10，距今<5年 | ✅ ELIG（情形三） |
+| `rejected_alreadyRetired_female55` | 延迟退休 — 女干部1970-06生，法定退休2025-07，申请时已退休，DRL 兜底拒绝 | ❌ NOT-ELIG |
 
 运行：
 

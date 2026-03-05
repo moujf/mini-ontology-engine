@@ -20,9 +20,10 @@ rule "Unemployment_Scenario_1_GeneralEmployee"
         // 1. 获取当前生效的政策单例
         $policy : UnemploymentPolicy()
 
-        // 2. 申请人：户籍深圳，非临近退休
+        // 2. 申请人：户籍深圳，非临近退休，且未达法定退休年龄
         $p : UnemployedPerson(
             isDomicileShenzhen() == true,
+            isRetired($policy) == false,
             isNearRetirement($policy) == false
         )
 
@@ -76,6 +77,7 @@ rule "Unemployment_Scenario_2_ShortTenure"
 
         $p : UnemployedPerson(
             isDomicileShenzhen() == true,
+            isRetired($policy) == false,
             isNearRetirement($policy) == false
         )
 
@@ -123,9 +125,10 @@ rule "Unemployment_Scenario_3_NearRetirement"
         // 1. 获取当前生效的政策单例（含退休年龄和临近退休年限）
         $policy : UnemploymentPolicy()
 
-        // 2. 判定个人是否符合临近退休条件（逻辑已封装在 UnemployedPerson 类中）
+        // 2. 判定个人是否符合临近退休条件（已退休者排除，逻辑已封装在 UnemployedPerson 类中）
         $p : UnemployedPerson(
             isDomicileShenzhen() == true,
+            isRetired($policy) == false,
             isNearRetirement($policy) == true
         )
 
@@ -177,7 +180,8 @@ rule "Unemployment_Scenario_4_IndividualBusiness"
     when
         $policy : UnemploymentPolicy()
 
-        $p : UnemployedPerson(isDomicileShenzhen() == true)
+        $p : UnemployedPerson(isDomicileShenzhen() == true,
+                              isRetired($policy) == false)
 
         $timeline : UnemploymentTimeline(getPersonId() == $p.getId())
 
@@ -218,6 +222,7 @@ end
 // ============================================================
 rule "Unemployment_Rejected"
     when
+        $policy : UnemploymentPolicy()
         $p    : UnemployedPerson()
         $timeline : UnemploymentTimeline(getPersonId() == $p.getId())
         $latest   : InsuranceRecord(this == $timeline.getLatestRecord())
@@ -228,6 +233,7 @@ rule "Unemployment_Rejected"
     then
         StringBuilder reason = new StringBuilder();
         if (!$p.isDomicileShenzhen())           reason.append("domicile-not-shenzhen; ");
+        if ($p.isRetired($policy))              reason.append("already-retired; ");
         if (!$latest.isLastInsuredShenzhen())   reason.append("last-insured-not-shenzhen; ");
         if (!$latest.meetsPaymentCondition())   reason.append("insufficient-paid-months; ");
         if ($latest.getRemainingMonths() <= 0)  reason.append("no-remaining-months; ");

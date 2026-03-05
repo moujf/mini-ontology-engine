@@ -374,3 +374,165 @@ sequenceDiagram
         end
     end
 ```
+
+
+---
+
+## Nine: Java File Editing on Windows — Pitfalls and Best Practices
+
+> Background: repeated attempts to modify `UnemployedPerson.java` (which contains
+> Chinese comments) all failed across 6 tries. The following rules were extracted.
+
+---
+
+### 9.1 Tool Priority (most reliable first)
+
+| Priority | Tool | Use Case | Risk |
+|----------|------|----------|------|
+| Best | `replace_string_in_file` | File content is known-good, change is local | Wrong match if file is corrupt |
+| Good | VS Code editor paste | Full rewrite of file with Chinese content | None — bypasses all encoding layers |
+| OK | Python `pathlib.Path.write_text(encoding="utf-8")` | Full rewrite of ASCII-only file | Script itself must not contain Chinese literals |
+| Caution | PowerShell `WriteAllText` + `UTF8Encoding::new($false)` | ASCII-only content | Chinese in multiline strings causes GBK mojibake |
+| BANNED | PowerShell `Set-Content -Encoding UTF8` | — | Writes UTF-8 WITH BOM; Java compiler reports `illegal character '﻿'` |
+| BANNED | PowerShell inline `python -c "..."` multiline | — | Triple-layer escaping conflict; always produces SyntaxError |
+
+---
+
+### 9.2 Failure Case Analysis
+
+#### Case A: `replace_string_in_file` inserts code inside Javadoc
+
+Symptom: new method appears inside a `/** ... */` comment block.
+
+Root cause: the file was already corrupted (old + new content spliced together).
+`replace_string_in_file` found an unexpected match position in the corrupted text.
+
+Lesson: always call `read_file` to verify actual file content BEFORE using
+`replace_string_in_file`. Confirm `oldString` exists exactly once in the file.
+
+---
+
+#### Case B: `Set-Content -Encoding UTF8` adds BOM
+
+Symptom:
+```
+error: illegal character: '﻿'
+  package com.example.ontology.model;
+  ^
+```
+
+Root cause: PowerShell 5.x `Set-Content -Encoding UTF8` writes UTF-8 WITH BOM (EF BB BF).
+Java compiler treats BOM as an illegal character.
+
+Fix:
+```powershell
+# Wrong — adds BOM
+Set-Content -Path $file -Encoding UTF8 -Value $content
+
+# Correct — BOM-free UTF-8
+$enc = [System.Text.UTF8Encoding]::new($false)
+[System.IO.File]::WriteAllText($file, $content, $enc)
+```
+
+---
+
+#### Case C: PowerShell `WriteAllText` produces GBK mojibake for Chinese text
+
+Symptom: Chinese characters in the file become garbled byte sequences.
+
+Root cause: PowerShell 5.x default codepage is GBK (CP936). Chinese characters in
+a here-string variable are already stored as GBK bytes. Writing them with
+`UTF8Encoding::new($false)` does not re-encode; the GBK bytes are written as-is
+but labeled UTF-8, causing mojibake when read back.
+
+Fix: never pass Chinese text through PowerShell string variables.
+Use Python script files or the VS Code editor directly.
+
+---
+
+#### Case D: `python -c "..."` inline multi-line code always fails
+
+Symptom: `SyntaxError: unterminated string` or `SyntaxError: invalid syntax`
+
+Root cause: PowerShell passes the entire command as a single string to `python -c`.
+Newlines, double-quotes, and parentheses conflict across PowerShell and Python
+parsing layers. Code beyond 1-2 lines cannot be written correctly this way.
+
+Fix: save Python code as a `.py` file, then execute it:
+
+```powershell
+# Step 1: write the Python script (ASCII-only) to a temp file
+@'
+import pathlib
+content = "package com.example;
+
+public class Foo {}
+"
+pathlib.Path(r"C:/path/to/Foo.java").write_text(content, encoding="utf-8")
+print("OK")
+'@ | Set-Content C:\Temp\write_file.py -Encoding UTF8
+
+# Step 2: execute the script
+python C:\Temp\write_file.py
+```
+
+Note: this only works when the Java file content is ASCII-only.
+If the Java file contains Chinese comments, use the VS Code editor — it is the
+only reliable method.
+
+---
+
+### 9.3 Reliable Workflow for Java Files with Chinese Comments
+
+Step 1 — read_file to verify current content:
+- File is intact -> use `replace_string_in_file` for local edits
+  - `oldString` must include 3+ lines of context above and below; must be unique
+- File is corrupted (garbled / spliced content) -> full rewrite needed
+  - Preferred: open in VS Code, Ctrl+A, paste correct content, save
+  - Alternative (ASCII-only file): Python script + `write_text(encoding="utf-8")`
+
+Golden Rules:
+1. Read before editing — use `read_file` to confirm actual content first
+2. Chinese file full rewrite -> VS Code editor only (bypasses all terminal encoding)
+3. Never use `Set-Content -Encoding UTF8` (adds BOM, breaks Java compiler)
+4. PowerShell terminal is for running commands only, not for passing Chinese strings
+
+---
+
+### 9.4 DRL Pitfall: Unbound Variable Breaks Entire KieBase
+
+Symptom: KieBase creation fails; ALL rules fail; ALL tests fail:
+```
+Unable to compile "unemployment.drl"
+$policy cannot be resolved
+```
+
+Wrong code:
+```drools
+// Missing $policy binding in when; used in then
+rule "Unemployment_Rejected"
+    when
+        $p : UnemployedPerson()
+        not(EligibilityResult(person == $p))
+    then
+        if ($p.isRetired($policy))  // $policy cannot be resolved
+            reason.append("already-retired; ");
+```
+
+Fixed code:
+```drools
+// Bind $policy in when first
+rule "Unemployment_Rejected"
+    when
+        $policy : UnemploymentPolicy()  // bind here
+        $p : UnemployedPerson()
+        not(EligibilityResult(person == $p))
+    then
+        if ($p.isRetired($policy))  // now valid
+            reason.append("already-retired; ");
+```
+
+Lesson: Every object variable (`$xxx`) used in a `then` block must be bound
+in the SAME rule's `when` block. Variable bindings do not cross rule boundaries.
+One unbound variable causes that rule to fail compilation, which makes the ENTIRE
+KieBase fail to load — all rules in the file become unavailable.

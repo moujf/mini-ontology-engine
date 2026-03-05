@@ -94,6 +94,16 @@ public class ReviewService {
                         dto.setApproved(approved);
                         dto.setRejectReason(er.getRejectReason());
                         dto.setScenario(detectedScenario);
+                        // ── 延迟退休信息（有出生日期时动态计算） ──────────────
+                        LocalDate birthday = d.person().getBirthday();
+                        if (birthday != null) {
+                            String gender = d.person().getGender();
+                            int retMonths = d.policy().calculateStatutoryRetirementAge(birthday, gender);
+                            LocalDate retDate = birthday.plusMonths(retMonths);
+                            dto.setRetirementDate(retDate.getYear() + "-"
+                                    + String.format("%02d", retDate.getMonthValue()));
+                            dto.setNearRetirement(d.policy().isNearRetirement(birthday, gender, LocalDate.now()));
+                        }
                         if (approved) {
                             dto.setBankName(d.bank().getBankName());
                             dto.setAccountNo(d.bank().getAccountNo());

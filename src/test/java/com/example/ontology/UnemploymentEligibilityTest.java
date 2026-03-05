@@ -30,14 +30,35 @@ import static org.junit.jupiter.api.Assertions.*;
  * </p>
  *
  * <pre>
- * 测试矩阵：
- *   scenario1_approved  — 情形一：企业职工，缴费≥12月，合同期满  → ELIG
- *   scenario1_rejected_voluntaryResign — 情形一失败：主动辞职       → NOT-ELIG, reject-reason 含 voluntary-stop
- *   scenario2_approved  — 情形二：缴费&lt;12月但有剩余期限，裁员   → ELIG
- *   scenario3_approved  — 情形三：临近退休，非个体工商户          → ELIG
- *   scenario3_rejected_noRegistration — 情形三失败：未办失业登记   → NOT-ELIG
- *   scenario4_approved  — 情形四：个体工商户，单位注销            → ELIG
- *   rejected_lastInsuredNotShenzhen — 最后参保地非深圳             → NOT-ELIG, reject-reason 含 last-insured-not-shenzhen
+ * 测试矩阵（共 13 个场景）：
+ *
+ *   情形一：
+ *     scenario1_approved               — 企业职工，合同期满，缴费36月                    → ELIG
+ *     scenario1_rejected_voluntaryResign — 主动辞职（自愿停保）                           → NOT-ELIG
+ *
+ *   情形二：
+ *     scenario2_approved               — 单位裁员（Article 41），缴费8月有剩余4月        → ELIG
+ *     scenario2_rejected_noRemaining   — 缴费不满12月且无剩余领取期限                    → NOT-ELIG
+ *
+ *   情形三：
+ *     scenario3_approved               — 临近退休，事业单位，合同期满，缴费240月         → ELIG
+ *     scenario3_rejected_noRegistration — 临近退休，但未办失业登记                        → NOT-ELIG
+ *
+ *   情形四：
+ *     scenario4_approved_unitClosed    — 个体工商户，单位注销（INDIVIDUAL_UNIT_CLOSED）  → ELIG
+ *     scenario4_approved_stopProduction — 个体工商户，停产停业（INDIVIDUAL_STOP_PRODUCTION）→ ELIG
+ *
+ *   通用拒绝：
+ *     rejected_lastInsuredNotShenzhen  — 最后参保地非深圳                                → NOT-ELIG
+ *     rejected_domicileNotShenzhen     — 户籍地非深圳                                    → NOT-ELIG
+ *
+ *   多段参保时间线：
+ *     timeline_multiRecord_approved         — 两段参保记录，最新段深圳且合同期满，累计≥12月    → ELIG
+ *     timeline_multiRecord_latestVoluntaryReject — 最新段主动辞职，即使历史段合规也应拒绝     → NOT-ELIG
+ *
+ *   延迟退休动态计算：
+ *     scenario3_approved_dynamicRetirement_male    — 男性1966-06生，动态法定退休2026-10，距今<5年 → ELIG（情形三）
+ *     rejected_alreadyRetired_female55             — 女干部1970-06生，法定退休2025-07，申请时已退休 → NOT-ELIG
  * </pre>
  */
 class UnemploymentEligibilityTest {
@@ -381,5 +402,75 @@ class UnemploymentEligibilityTest {
         EligibilityResult r = assertRejected(re, id);
         assertTrue(r.getRejectReason().contains("voluntary-stop"),
                 "最新段主动辞职，应拒绝并说明 voluntary-stop，was: " + r.getRejectReason());
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // 延迟退休动态计算场景
+    // ──────────────────────────────────────────────────────────
+
+    /**
+     * 延迟退休动态计算：男性，1966-06-01 生。
+     *
+     * <p>计算过程：
+     * <ul>
+     *   <li>起算门槛：1965-01-01（男性）</li>
+     *   <li>距门槛自然月数：17 月（1965-01 → 1966-06）</li>
+     *   <li>延迟月数：floor(17 / 4) = 4 月</li>
+     *   <li>法定退休月数：720 + 4 = 724 月（60 岁 4 个月）</li>
+     *   <li>法定退休日期：1966-06-01 + 724 月 = 2026-10-01</li>
+     *   <li>参考日期（测试当天）：2026-03-05 → 距退休 ≈ 7 月 ≤ 60 月（5 年）→ nearRetirement = true</li>
+     * </ul>
+     * </p>
+     */
+    @Test
+    @DisplayName("情形三 APPROVED — 延迟退休动态计算：男性1966-06生，法定退休60y4m，距今<5年")
+    void scenario3_approved_dynamicRetirement_male() {
+        String id = "440101196606015678";
+        // birthday 传入，gender="male" → policy.isNearRetirement 动态判定临近退休
+        RuleEngine re = runApplicant(
+            new UnemployedPerson(id, "DelayRetireMale", true,
+                    LocalDate.of(1966, 6, 1), "male"),
+            new InsuranceRecord(id, 240, 24, true, StopReason.CONTRACT_EXPIRED),
+            new EmployerUnit(id, "91440300MA5XXXXXDR", "SZ Tech Corp", UnitType.ENTERPRISE),
+            new UnemploymentRegistration(id, true, "2026-01-10"),
+            new TerminationMaterial(id, MaterialType.CONTRACT_TERMINATION_NOTICE, "2025-12-31", "SZ Tech Corp"),
+            new BankAccount(id, "6222021966060112", "CCB", "DelayRetireMale")
+        );
+        EligibilityResult r = assertApproved(re, id);
+        assertEquals("ELIGIBLE_SCENARIO_3", r.getScenarioCode(),
+                "应命中情形三（动态延迟退休：法定退休 2026-10，距今<5年）");
+    }
+
+    /**
+     * 延迟退休动态计算：女性干部岗，1970-06-01 生。
+     *
+     * <p>计算过程：
+     * <ul>
+     *   <li>起算门槛：1970-01-01（female55）</li>
+     *   <li>距门槛自然月数：5 月（1970-01 → 1970-06）</li>
+     *   <li>延迟月数：floor(5 / 4) = 1 月</li>
+     *   <li>法定退休月数：660 + 1 = 661 月（55 岁 1 个月）</li>
+     *   <li>法定退休日期：1970-06-01 + 661 月 = 2025-07-01</li>
+     *   <li>参考日期：2026-03-05 → 已超过退休日期 → isRetired=true → 不得申领失业保险金</li>
+     * </ul>
+     * </p>
+     */
+    @Test
+    @DisplayName("REJECTED — 延迟退休动态计算：女干部1970-06生，法定退休55y1m，已过退休日不得申领")
+    void rejected_alreadyRetired_female55() {
+        String id = "440101197006015679";
+        // 已超过法定退休日 → isRetired=true → 四种情形均无法命中 → 兜底拒绝 already-retired
+        RuleEngine re = runApplicant(
+            new UnemployedPerson(id, "AlreadyRetiredFemale55", true,
+                    LocalDate.of(1970, 6, 1), "female55"),
+            new InsuranceRecord(id, 180, 18, true, StopReason.CONTRACT_EXPIRED),
+            new EmployerUnit(id, "91440300MA5XXXXXF5", "SZ Finance Ltd", UnitType.ENTERPRISE),
+            new UnemploymentRegistration(id, true, "2026-01-15"),
+            new TerminationMaterial(id, MaterialType.CONTRACT_TERMINATION_NOTICE, "2025-12-31", "SZ Finance Ltd"),
+            new BankAccount(id, "6222021970060111", "BOC", "AlreadyRetiredFemale55")
+        );
+        EligibilityResult r = assertRejected(re, id);
+        assertTrue(r.getRejectReason().contains("already-retired"),
+                "已过法定退休日，应拒绝并说明 already-retired，was: " + r.getRejectReason());
     }
 }

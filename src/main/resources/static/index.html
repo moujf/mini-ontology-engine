@@ -895,6 +895,23 @@ function buildResultCard(r) {
   const reasons = rejectReasonLabel(r.rejectReason);
   const bankHtml = isOk && r.bankName ? `<div class="bank-box"><span class="material-icons-round">account_balance</span><div class="bank-info"><div class="bank-name">${esc(r.bankName)} · ${esc(r.accountName)}</div><div class="bank-no">${esc(r.accountNo)}</div></div></div>` : '';
   const rejectHtml = !isOk ? `<div class="reject-box"><div class="reject-label">拒绝原因</div>${reasons.map(s=>`<div class="reject-reason-item">${esc(s)}</div>`).join('')}</div>` : '';
+
+  // 延迟退休信息行：仅当后端返回了 retirementDate 时展示
+  let retirementHtml = '';
+  if (r.retirementDate != null) {
+    const nearChip = r.nearRetirement
+      ? `<span class="chip chip-amber" style="margin-left:8px">临近退休</span>`
+      : `<span class="chip chip-teal"  style="margin-left:8px">未临近退休</span>`;
+    retirementHtml = `
+      <div class="info-row" style="margin-top:6px">
+        <span class="info-label">法定退休</span>
+        <span class="info-value"><strong>${esc(r.retirementDate)}</strong></span>
+        <span style="flex:1"></span>
+        <span class="info-label">临近退休判定</span>
+        <span class="info-value">${nearChip}</span>
+      </div>`;
+  }
+
   return `
   <div class="result-card ${isOk?'approved':'rejected'}">
     <div class="result-header">
@@ -904,6 +921,7 @@ function buildResultCard(r) {
     <div class="result-body">
       <div class="verdict ${isOk?'ok':'err'}"><span class="material-icons-round" style="font-size:18px">${isOk?'check':'close'}</span>${isOk?'资格审查通过 — 准予申领':'资格审查未通过'}</div>
       <div class="info-row"><span class="info-label">适用情形</span><span class="info-value"><span class="chip chip-amber">${esc(r.scenario)}</span></span></div>
+      ${retirementHtml}
       ${bankHtml}${rejectHtml}
     </div>
   </div>`;
@@ -1076,7 +1094,7 @@ function resetForm() {
   $id('ins-record-list').innerHTML='';
   $id('timeline-summary').style.display='none';
   recCounter = 0;
-  addInsRecord(); // start with one empty record
+  addInsRecord({ paid: 36, remain: 18, stopDate: '2024-02-28', stopReason: 'CONTRACT_EXPIRED', lastSz: true });
   $id('inp-ucode').value=''; $id('inp-uname').value=''; $id('inp-utype').value='ENTERPRISE';
   $id('inp-reg').checked=true; $id('lbl-reg').textContent='有效';
   $id('inp-reg-date').value='2024-03-01';
@@ -1093,8 +1111,25 @@ function resetForm() {
 
 function delay(ms) { return new Promise(r=>setTimeout(r,ms)); }
 
-// ── Initialise: add one default insurance record ──
-addInsRecord({ paid: 36, remain: 18, stopDate: '2024-02-28', stopReason: 'CONTRACT_EXPIRED', lastSz: true });
+// ── Initialise: default = 延迟退休动态计算演示（情形三）
+// 申请人：男性，1966-06-01 生 → 法定退休 2026-10（60y4m），距今 < 5年 → 临近退休
+// 参保：两段记录（早段外省，最新段深圳240月合同期满）
+addInsRecord({ paid: 24, remain: 0, stopDate: '2019-03-31', stopReason: 'VOLUNTARY_RESIGN', lastSz: false });
+addInsRecord({ paid: 240, remain: 24, stopDate: '2025-12-31', stopReason: 'CONTRACT_EXPIRED', lastSz: true });
+// 预填申请人字段
+$id('inp-id').value       = '440101196606015678';
+$id('inp-name').value     = '张延龄';
+$id('inp-birthday').value = '1966-06-01';
+$id('inp-gender').value   = 'male';
+$id('inp-uname').value    = 'SZ Tech Corp';
+$id('inp-ucode').value    = '91440300MA5XXXXXDR';
+$id('inp-utype').value    = 'ENTERPRISE';
+$id('inp-issuing').value  = 'SZ Tech Corp';
+$id('inp-reg-date').value = '2026-01-10';
+$id('inp-term-date').value= '2025-12-31';
+$id('inp-bank').value     = '中国建设银行';
+$id('inp-acctno').value   = '6222021966060112';
+$id('inp-acctname').value = '张延龄';
 </script>
 </body>
 </html>
