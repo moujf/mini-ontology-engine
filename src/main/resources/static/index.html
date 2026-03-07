@@ -1263,7 +1263,7 @@ async function runReview() {
   $id('section-phase2').style.display='none';
   $id('section-phase3').style.display='none';
   try {
-    const resp = await fetch('/api/review');
+    const resp = await fetch('api/review');
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
     $id('version-badge').textContent='Rule v'+data.ruleVersion;
@@ -1368,7 +1368,7 @@ async function submitApplicant() {
   };
 
   try {
-    const resp = await fetch('/api/review', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    const resp = await fetch('api/review', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
 

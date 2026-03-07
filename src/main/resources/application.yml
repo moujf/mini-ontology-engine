@@ -1,6 +1,8 @@
 # Spring Boot 应用核心配置
 server:
-  port: 8080
+  port: 17028
+  servlet:
+    context-path: /ontology-engine
 
 spring:
   # 应用名称配置
