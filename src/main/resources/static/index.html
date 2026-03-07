@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>失业保险金申领资格审查系统</title>
+  <title>人社本体技术验证-失业保险金申领资格审查系统</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet"/>
   <style>
@@ -313,7 +313,7 @@
 
 <header class="top-bar">
   <span class="material-icons-round">policy</span>
-  <span class="title">失业保险金申领资格审查系统</span>
+  <span class="title">人社本体技术验证-失业保险金申领资格审查系统</span>
   <span class="version-badge" id="version-badge">Rule v—</span>
 </header>
 
@@ -366,7 +366,7 @@
     <div class="section-header">
       <div class="section-icon ph1"><span class="material-icons-round">group_add</span></div>
       <div>
-        <div class="section-title">Phase 1 — 录入申请人信息</div>
+        <div class="section-title">Phase 1 — 基于本体的业务画像</div>
         <div class="section-sub">所有申请人实体已插入 Drools Working Memory（每人独立 KieSession）</div>
       </div>
     </div>
@@ -404,10 +404,324 @@
     <div class="result-cards" id="result-grid"></div>
   </div>
 
-  <div class="placeholder" id="placeholder">
-    <span class="material-icons-round">smart_toy</span>
-    <p>点击「执行审查」按钮，启动规则引擎流水线</p>
-  </div>
+  <div id="placeholder">
+
+    <!-- ── 提示条 ── -->
+    <div style="text-align:center;padding:32px 20px 24px">
+      <span class="material-icons-round" style="font-size:48px;color:var(--md-primary);opacity:.5">smart_toy</span>
+      <p style="margin-top:10px;font-size:15px;color:var(--md-on-surface-variant)">点击「执行审查」按钮，启动规则引擎流水线</p>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════
+         本体概念区域
+    ══════════════════════════════════════════════════ -->
+
+    <!-- 第一行：什么是本体 -->
+    <div style="background:white;border-radius:16px;box-shadow:var(--md-elev1);padding:28px 32px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+        <div style="width:40px;height:40px;border-radius:12px;background:var(--md-primary-container);color:var(--md-primary);display:flex;align-items:center;justify-content:center">
+          <span class="material-icons-round">hub</span>
+        </div>
+        <div>
+          <div style="font-size:17px;font-weight:700">什么是本体（Ontology）？</div>
+          <div style="font-size:12px;color:var(--md-on-surface-variant);margin-top:2px">Palantir 核心理念 — 不是"模型"，而是"对业务世界数字孪生的可计算映射"</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <!-- 左列：传统平台 vs 本体 -->
+        <div style="background:#F8F9FE;border-radius:12px;padding:18px 20px">
+          <div style="font-size:12px;font-weight:600;color:var(--md-error);letter-spacing:.06em;margin-bottom:10px">❌ 传统数据平台的问题</div>
+          <div style="font-size:13.5px;line-height:2;color:var(--md-on-surface)">
+            表很多 · 指标很多 · 报表很多<br/>
+            但系统<strong>「不知道」</strong>什么是「一个人」「一个项目」「一次风险」<br/>
+            <span style="color:var(--md-on-surface-variant);font-size:12px">→ 数据孤岛，无法跨源理解业务对象</span>
+          </div>
+        </div>
+        <div style="background:#F0F7F0;border-radius:12px;padding:18px 20px">
+          <div style="font-size:12px;font-weight:600;color:#2E7D32;letter-spacing:.06em;margin-bottom:10px">✅ Ontology 要解决的是</div>
+          <div style="font-size:13.5px;line-height:2;color:var(--md-on-surface)">
+            让系统<strong>「理解业务对象」</strong>，而不仅是存储数据字段<br/>
+            它不是 ER 模型，而是一个 <strong>Object Graph</strong><br/>
+            <span style="color:var(--md-on-surface-variant);font-size:12px">→ 属性 + 状态 + 关系 + 生命周期 + 可执行能力</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第二行：Object 五大要素 -->
+    <div style="background:white;border-radius:16px;box-shadow:var(--md-elev1);padding:28px 32px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div style="width:40px;height:40px;border-radius:12px;background:#EDE7F6;color:#6A1B9A;display:flex;align-items:center;justify-content:center">
+          <span class="material-icons-round">category</span>
+        </div>
+        <div>
+          <div style="font-size:17px;font-weight:700">Object 五大要素</div>
+          <div style="font-size:12px;color:var(--md-on-surface-variant);margin-top:2px">每一个业务实体（Object）都由五个维度完整描述</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
+        <div style="border-radius:12px;border:1.5px solid #E3F2FD;padding:16px 14px;text-align:center">
+          <div style="width:36px;height:36px;border-radius:50%;background:#E3F2FD;color:#1565C0;display:flex;align-items:center;justify-content:center;margin:0 auto 10px"><span class="material-icons-round" style="font-size:18px">tune</span></div>
+          <div style="font-size:13px;font-weight:700;color:#1565C0;margin-bottom:6px">属性</div>
+          <div style="font-size:11.5px;color:var(--md-on-surface-variant);line-height:1.6">Attributes<br/>描述对象的静态数据特征<br/><em>如：姓名、身份证号</em></div>
+        </div>
+        <div style="border-radius:12px;border:1.5px solid #E8F5E9;padding:16px 14px;text-align:center">
+          <div style="width:36px;height:36px;border-radius:50%;background:#E8F5E9;color:#2E7D32;display:flex;align-items:center;justify-content:center;margin:0 auto 10px"><span class="material-icons-round" style="font-size:18px">toggle_on</span></div>
+          <div style="font-size:13px;font-weight:700;color:#2E7D32;margin-bottom:6px">状态</div>
+          <div style="font-size:11.5px;color:var(--md-on-surface-variant);line-height:1.6">State<br/>对象当前所处的阶段<br/><em>如：在保 / 停保 / 退休</em></div>
+        </div>
+        <div style="border-radius:12px;border:1.5px solid #FFF3E0;padding:16px 14px;text-align:center">
+          <div style="width:36px;height:36px;border-radius:50%;background:#FFF3E0;color:#E65100;display:flex;align-items:center;justify-content:center;margin:0 auto 10px"><span class="material-icons-round" style="font-size:18px">device_hub</span></div>
+          <div style="font-size:13px;font-weight:700;color:#E65100;margin-bottom:6px">关系</div>
+          <div style="font-size:11.5px;color:var(--md-on-surface-variant);line-height:1.6">Relations<br/>对象之间的连接<br/><em>如：参保关系→险种</em></div>
+        </div>
+        <div style="border-radius:12px;border:1.5px solid #FCE4EC;padding:16px 14px;text-align:center">
+          <div style="width:36px;height:36px;border-radius:50%;background:#FCE4EC;color:#C62828;display:flex;align-items:center;justify-content:center;margin:0 auto 10px"><span class="material-icons-round" style="font-size:18px">timeline</span></div>
+          <div style="font-size:13px;font-weight:700;color:#C62828;margin-bottom:6px">生命周期</div>
+          <div style="font-size:11.5px;color:var(--md-on-surface-variant);line-height:1.6">Lifecycle<br/>对象的状态迁移序列<br/><em>参保→缴费→变更→退休</em></div>
+        </div>
+        <div style="border-radius:12px;border:1.5px solid #EDE7F6;padding:16px 14px;text-align:center">
+          <div style="width:36px;height:36px;border-radius:50%;background:#EDE7F6;color:#6A1B9A;display:flex;align-items:center;justify-content:center;margin:0 auto 10px"><span class="material-icons-round" style="font-size:18px">bolt</span></div>
+          <div style="font-size:13px;font-weight:700;color:#6A1B9A;margin-bottom:6px">可执行能力</div>
+          <div style="font-size:11.5px;color:var(--md-on-surface-variant);line-height:1.6">Actions<br/>对象可触发的业务动作<br/><em>如：发起审查、通知</em></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 第三行：本场景本体列表 + 本体关系图 -->
+    <div style="display:grid;grid-template-columns:1fr 1.35fr;gap:20px;margin-bottom:20px">
+
+      <!-- 左：本场景本体列表 -->
+      <div style="background:white;border-radius:16px;box-shadow:var(--md-elev1);padding:28px 24px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+          <div style="width:40px;height:40px;border-radius:12px;background:#E0F7FA;color:#00695C;display:flex;align-items:center;justify-content:center">
+            <span class="material-icons-round">schema</span>
+          </div>
+          <div>
+            <div style="font-size:16px;font-weight:700">本场景中的本体对象</div>
+            <div style="font-size:12px;color:var(--md-on-surface-variant);margin-top:2px">失业保险金申领审查 — 9 个核心 Object</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <!-- 每个对象 -->
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;background:#F8F9FE;border-left:3px solid var(--md-primary)">
+            <span class="material-icons-round" style="font-size:18px;color:var(--md-primary);margin-top:1px">person</span>
+            <div><div style="font-size:13px;font-weight:600">UnemployedPerson <span style="font-size:11px;color:var(--md-on-surface-variant);font-weight:400">申领人</span></div><div style="font-size:11.5px;color:var(--md-on-surface-variant);margin-top:2px">姓名·户籍·出生日期·性别/岗位；支持延迟退休动态计算</div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;background:#F8F9FE;border-left:3px solid #2E7D32">
+            <span class="material-icons-round" style="font-size:18px;color:#2E7D32;margin-top:1px">business_center</span>
+            <div><div style="font-size:13px;font-weight:600">InsuranceRecord <span style="font-size:11px;color:var(--md-on-surface-variant);font-weight:400">单段参保记录</span></div><div style="font-size:11.5px;color:var(--md-on-surface-variant);margin-top:2px">缴费月数·剩余月数·停保日期·停保原因（15种枚举）</div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;background:#F8F9FE;border-left:3px solid #2E7D32">
+            <span class="material-icons-round" style="font-size:18px;color:#2E7D32;margin-top:1px">stacked_line_chart</span>
+            <div><div style="font-size:13px;font-weight:600">UnemploymentTimeline <span style="font-size:11px;color:var(--md-on-surface-variant);font-weight:400">多段参保聚合</span></div><div style="font-size:11.5px;color:var(--md-on-surface-variant);margin-top:2px">自动取最晚停保段为 latestRecord，累加 totalMonths</div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;background:#F8F9FE;border-left:3px solid #E65100">
+            <span class="material-icons-round" style="font-size:18px;color:#E65100;margin-top:1px">gavel</span>
+            <div><div style="font-size:13px;font-weight:600">UnemploymentPolicy <span style="font-size:11px;color:var(--md-on-surface-variant);font-weight:400">政策参数单例</span></div><div style="font-size:11.5px;color:var(--md-on-surface-variant);margin-top:2px">最低缴费月数·临近退休年限·2025延迟退休动态算法</div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;background:#F8F9FE;border-left:3px solid #6A1B9A">
+            <span class="material-icons-round" style="font-size:18px;color:#6A1B9A;margin-top:1px">apartment</span>
+            <div><div style="font-size:13px;font-weight:600">EmployerUnit <span style="font-size:11px;color:var(--md-on-surface-variant);font-weight:400">用人单位</span></div><div style="font-size:11.5px;color:var(--md-on-surface-variant);margin-top:2px">社会信用代码·单位类型（10种枚举含个体工商户）</div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;background:#F8F9FE;border-left:3px solid #00695C">
+            <span class="material-icons-round" style="font-size:18px;color:#00695C;margin-top:1px">how_to_reg</span>
+            <div><div style="font-size:13px;font-weight:600">UnemploymentRegistration <span style="font-size:11px;color:var(--md-on-surface-variant);font-weight:400">失业登记</span></div><div style="font-size:11.5px;color:var(--md-on-surface-variant);margin-top:2px">是否有效·登记日期</div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;background:#F8F9FE;border-left:3px solid #C62828">
+            <span class="material-icons-round" style="font-size:18px;color:#C62828;margin-top:1px">description</span>
+            <div><div style="font-size:13px;font-weight:600">TerminationMaterial <span style="font-size:11px;color:var(--md-on-surface-variant);font-weight:400">劳动关系终止材料</span></div><div style="font-size:11.5px;color:var(--md-on-surface-variant);margin-top:2px">材料类型（6种枚举）·终止日期·出具单位</div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;background:#F8F9FE;border-left:3px solid #0277BD">
+            <span class="material-icons-round" style="font-size:18px;color:#0277BD;margin-top:1px">account_balance</span>
+            <div><div style="font-size:13px;font-weight:600">BankAccount <span style="font-size:11px;color:var(--md-on-surface-variant);font-weight:400">收款账户</span></div><div style="font-size:11.5px;color:var(--md-on-surface-variant);margin-top:2px">银行·账号·户名</div></div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;background:var(--md-success-container);border-left:3px solid var(--md-success)">
+            <span class="material-icons-round" style="font-size:18px;color:var(--md-success);margin-top:1px">fact_check</span>
+            <div><div style="font-size:13px;font-weight:600">EligibilityResult <span style="font-size:11px;color:#2E7D32;font-weight:400">审查结论（输出）</span></div><div style="font-size:11.5px;color:#388E3C;margin-top:2px">规则引擎输出：审查码·说明文字·拒绝原因</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右：本体关系图（SVG） -->
+      <div style="background:white;border-radius:16px;box-shadow:var(--md-elev1);padding:28px 24px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+          <div style="width:40px;height:40px;border-radius:12px;background:#FFF3E0;color:#E65100;display:flex;align-items:center;justify-content:center">
+            <span class="material-icons-round">account_tree</span>
+          </div>
+          <div>
+            <div style="font-size:16px;font-weight:700">本体关系图</div>
+            <div style="font-size:12px;color:var(--md-on-surface-variant);margin-top:2px">UnemployedPerson 为中心节点，驱动五个关联对象，Policy 提供规则参数</div>
+          </div>
+        </div>
+        <svg viewBox="0 0 640 500" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;font-family:'Noto Sans SC','Roboto',sans-serif">
+          <defs>
+            <marker id="arr"   markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#90A4AE"/></marker>
+            <marker id="arr-g" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#2E7D32"/></marker>
+            <marker id="arr-o" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#E65100"/></marker>
+            <marker id="arr-p" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#6A1B9A"/></marker>
+            <marker id="arr-t" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#00695C"/></marker>
+            <marker id="arr-r" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#C62828"/></marker>
+            <marker id="arr-b2" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#0277BD"/></marker>
+          </defs>
+
+          <!-- ════════════════════════════════════════
+               布局说明（viewBox 640×500）
+               顶部两列：InsuranceRecord(左) UnemploymentTimeline(右上)
+               中心：UnemployedPerson
+               左侧：EmployerUnit  右上：UnemploymentReg.  右下：TerminationMaterial
+               下方：BankAccount
+               左下：UnemploymentPolicy
+          ════════════════════════════════════════ -->
+
+          <!-- ── InsuranceRecord (左上) x=30,y=30 w=158,h=50 ── -->
+          <rect x="30" y="30" width="158" height="50" rx="8" fill="#E8F5E9" stroke="#2E7D32" stroke-width="1.5"/>
+          <text x="109" y="52" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1B5E20">InsuranceRecord</text>
+          <text x="109" y="69" text-anchor="middle" font-size="10" fill="#388E3C">单段参保记录 × N</text>
+
+          <!-- ── UnemploymentTimeline (右上) x=230,y=30 w=178,h=50 ── -->
+          <rect x="230" y="30" width="178" height="50" rx="8" fill="#E8F5E9" stroke="#2E7D32" stroke-width="1.5"/>
+          <text x="319" y="52" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1B5E20">UnemploymentTimeline</text>
+          <text x="319" y="69" text-anchor="middle" font-size="10" fill="#388E3C">多段参保聚合</text>
+
+          <!-- InsuranceRecord → Timeline 聚合箭头 -->
+          <line x1="188" y1="55" x2="230" y2="55" stroke="#2E7D32" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-g)"/>
+          <text x="209" y="49" text-anchor="middle" font-size="9.5" fill="#388E3C">聚合</text>
+
+          <!-- ── 中心节点：UnemployedPerson  x=200,y=195 w=190,h=62 ── -->
+          <rect x="200" y="195" width="190" height="62" rx="10" fill="#E3F2FD" stroke="#1565C0" stroke-width="2.5"/>
+          <text x="295" y="218" text-anchor="middle" font-size="13" font-weight="700" fill="#0D47A1">UnemployedPerson</text>
+          <text x="295" y="235" text-anchor="middle" font-size="10.5" fill="#1565C0">申领人（核心节点）</text>
+          <text x="295" y="249" text-anchor="middle" font-size="10" fill="#1565C0">属性 · 状态 · 生命周期 · Actions</text>
+
+          <!-- Timeline → Person -->
+          <line x1="319" y1="80" x2="310" y2="195" stroke="#2E7D32" stroke-width="1.5" marker-end="url(#arr-g)"/>
+          <text x="328" y="143" text-anchor="start" font-size="10" fill="#2E7D32">hasTimeline</text>
+
+          <!-- InsuranceRecord → Person (虚线曲线) -->
+          <path d="M109,80 Q109,165 210,210" stroke="#90A4AE" stroke-width="1.3" fill="none" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+          <text x="118" y="160" text-anchor="start" font-size="9.5" fill="#90A4AE">hasRecord</text>
+
+          <!-- ── EmployerUnit (左中) x=28,y=205 w=140,h=50 ── -->
+          <rect x="28" y="205" width="140" height="50" rx="8" fill="#EDE7F6" stroke="#6A1B9A" stroke-width="1.5"/>
+          <text x="98" y="226" text-anchor="middle" font-size="11.5" font-weight="700" fill="#4A148C">EmployerUnit</text>
+          <text x="98" y="243" text-anchor="middle" font-size="10" fill="#7B1FA2">用人单位</text>
+
+          <!-- EmployerUnit → Person -->
+          <line x1="168" y1="227" x2="200" y2="222" stroke="#6A1B9A" stroke-width="1.5" marker-end="url(#arr-p)"/>
+          <text x="174" y="215" text-anchor="middle" font-size="9.5" fill="#6A1B9A">employedBy</text>
+
+          <!-- ── UnemploymentRegistration (右上) x=435,y=148 w=185,h=50 ── -->
+          <rect x="435" y="148" width="185" height="50" rx="8" fill="#E0F7FA" stroke="#00695C" stroke-width="1.5"/>
+          <text x="527" y="170" text-anchor="middle" font-size="11" font-weight="700" fill="#004D40">UnemploymentReg.</text>
+          <text x="527" y="186" text-anchor="middle" font-size="10" fill="#00695C">失业登记</text>
+
+          <!-- Person → Reg. -->
+          <line x1="390" y1="210" x2="435" y2="182" stroke="#00695C" stroke-width="1.5" marker-end="url(#arr-t)"/>
+          <text x="402" y="193" text-anchor="start" font-size="9.5" fill="#00695C">hasRegistration</text>
+
+          <!-- ── TerminationMaterial (右下) x=435,y=268 w=185,h=50 ── -->
+          <rect x="435" y="268" width="185" height="50" rx="8" fill="#FFEBEE" stroke="#C62828" stroke-width="1.5"/>
+          <text x="527" y="289" text-anchor="middle" font-size="11" font-weight="700" fill="#B71C1C">TerminationMaterial</text>
+          <text x="527" y="305" text-anchor="middle" font-size="10" fill="#C62828">劳动关系终止材料</text>
+
+          <!-- Person → TerminationMaterial -->
+          <line x1="390" y1="240" x2="435" y2="278" stroke="#C62828" stroke-width="1.5" marker-end="url(#arr-r)"/>
+          <text x="398" y="267" text-anchor="start" font-size="9.5" fill="#C62828">hasMaterial</text>
+
+          <!-- ── BankAccount (下中) x=205,y=370 w=178,h=50 ── -->
+          <rect x="205" y="370" width="178" height="50" rx="8" fill="#E3F2FD" stroke="#0277BD" stroke-width="1.5"/>
+          <text x="294" y="392" text-anchor="middle" font-size="11.5" font-weight="700" fill="#01579B">BankAccount</text>
+          <text x="294" y="408" text-anchor="middle" font-size="10" fill="#0277BD">收款账户</text>
+
+          <!-- Person → BankAccount -->
+          <line x1="294" y1="257" x2="294" y2="370" stroke="#0277BD" stroke-width="1.5" marker-end="url(#arr-b2)"/>
+          <text x="300" y="318" text-anchor="start" font-size="9.5" fill="#0277BD">hasBankAccount</text>
+
+          <!-- ── UnemploymentPolicy (左下) x=28,y=335 w=160,h=52 ── -->
+          <rect x="28" y="335" width="160" height="52" rx="8" fill="#FFF8E1" stroke="#F57F17" stroke-width="1.5"/>
+          <text x="108" y="357" text-anchor="middle" font-size="11" font-weight="700" fill="#E65100">UnemploymentPolicy</text>
+          <text x="108" y="373" text-anchor="middle" font-size="10" fill="#F57F17">政策参数单例</text>
+
+          <!-- Policy →(虚线) Person：两段标签 -->
+          <path d="M108,335 Q80,295 210,240" stroke="#E65100" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#arr-o)"/>
+          <text x="72" y="300" text-anchor="start" font-size="9.5" fill="#E65100">isRetired()</text>
+          <text x="72" y="313" text-anchor="start" font-size="9.5" fill="#E65100">isNearRetirement()</text>
+
+          <!-- ── 图例 (右下角) ── -->
+          <g transform="translate(430,420)">
+            <rect x="-6" y="-14" width="206" height="72" rx="6" fill="#FAFAFA" stroke="#E0E0E0" stroke-width="1"/>
+            <text x="0" y="0" font-size="10" font-weight="700" fill="#444">图例</text>
+            <line x1="0" y1="11" x2="24" y2="11" stroke="#2E7D32" stroke-width="1.5" marker-end="url(#arr-g)"/>
+            <text x="28" y="15" font-size="9.5" fill="#555">实体关联</text>
+            <line x1="0" y1="27" x2="24" y2="27" stroke="#90A4AE" stroke-width="1.3" stroke-dasharray="4,3" marker-end="url(#arr)"/>
+            <text x="28" y="31" font-size="9.5" fill="#555">派生聚合</text>
+            <line x1="0" y1="43" x2="24" y2="43" stroke="#E65100" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-o)"/>
+            <text x="28" y="47" font-size="9.5" fill="#555">规则参数调用</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <!-- 第四行：本体中的生命周期与可执行能力 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+      <!-- 生命周期 -->
+      <div style="background:white;border-radius:16px;box-shadow:var(--md-elev1);padding:24px 24px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="width:36px;height:36px;border-radius:10px;background:#FCE4EC;color:#C62828;display:flex;align-items:center;justify-content:center">
+            <span class="material-icons-round" style="font-size:18px">timeline</span>
+          </div>
+          <div style="font-size:15px;font-weight:700">InsuredPerson 生命周期</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0;flex-wrap:nowrap;overflow-x:auto;padding:4px 0">
+          <div style="flex-shrink:0;text-align:center;padding:8px 12px;background:#E3F2FD;border-radius:8px;font-size:12px;font-weight:600;color:#1565C0">参保</div>
+          <span class="material-icons-round" style="color:#90A4AE;font-size:18px;flex-shrink:0">arrow_forward</span>
+          <div style="flex-shrink:0;text-align:center;padding:8px 12px;background:#E8F5E9;border-radius:8px;font-size:12px;font-weight:600;color:#2E7D32">缴费</div>
+          <span class="material-icons-round" style="color:#90A4AE;font-size:18px;flex-shrink:0">arrow_forward</span>
+          <div style="flex-shrink:0;text-align:center;padding:8px 12px;background:#FFF8E1;border-radius:8px;font-size:12px;font-weight:600;color:#E65100">停保/变更</div>
+          <span class="material-icons-round" style="color:#90A4AE;font-size:18px;flex-shrink:0">arrow_forward</span>
+          <div style="flex-shrink:0;text-align:center;padding:8px 12px;background:#FFEBEE;border-radius:8px;font-size:12px;font-weight:600;color:#C62828">失业登记</div>
+          <span class="material-icons-round" style="color:#90A4AE;font-size:18px;flex-shrink:0">arrow_forward</span>
+          <div style="flex-shrink:0;text-align:center;padding:8px 12px;background:#EDE7F6;border-radius:8px;font-size:12px;font-weight:600;color:#6A1B9A">待遇申领</div>
+          <span class="material-icons-round" style="color:#90A4AE;font-size:18px;flex-shrink:0">arrow_forward</span>
+          <div style="flex-shrink:0;text-align:center;padding:8px 12px;background:#E8F5E9;border-radius:8px;font-size:12px;font-weight:600;color:#2E7D32">退休</div>
+        </div>
+        <div style="margin-top:14px;font-size:12px;color:var(--md-on-surface-variant);line-height:1.7">
+          当前场景聚焦于 <strong>停保 → 失业登记 → 待遇申领</strong> 阶段的资格审查，
+          通过 <code style="background:#F5F5F5;padding:1px 5px;border-radius:4px">UnemploymentTimeline</code>
+          聚合多段参保记录，完整还原申请人缴费历史。
+        </div>
+      </div>
+      <!-- 可执行能力（Actions） -->
+      <div style="background:white;border-radius:16px;box-shadow:var(--md-elev1);padding:24px 24px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="width:36px;height:36px;border-radius:10px;background:#EDE7F6;color:#6A1B9A;display:flex;align-items:center;justify-content:center">
+            <span class="material-icons-round" style="font-size:18px">bolt</span>
+          </div>
+          <div style="font-size:15px;font-weight:700">可执行能力（Actions）</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#F8F9FE;border-radius:10px">
+            <span class="material-icons-round" style="font-size:18px;color:var(--md-primary)">play_circle</span>
+            <div><div style="font-size:13px;font-weight:600">RuleEngine.fire()</div><div style="font-size:11.5px;color:var(--md-on-surface-variant)">向 KieSession 插入全部 Fact，触发 fireAllRules()</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#F8F9FE;border-radius:10px">
+            <span class="material-icons-round" style="font-size:18px;color:#2E7D32">notifications</span>
+            <div><div style="font-size:13px;font-weight:600">NotifyAction.run()</div><div style="font-size:11.5px;color:var(--md-on-surface-variant)">规则命中后，ActionEngine 分发通知动作（APPROVED / REJECTED）</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#F8F9FE;border-radius:10px">
+            <span class="material-icons-round" style="font-size:18px;color:#E65100">calculate</span>
+            <div><div style="font-size:13px;font-weight:600">isRetired() / isNearRetirement()</div><div style="font-size:11.5px;color:var(--md-on-surface-variant)">UnemployedPerson 委托 Policy 动态计算退休年龄（2025 延迟退休）</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#F8F9FE;border-radius:10px">
+            <span class="material-icons-round" style="font-size:18px;color:#0277BD">api</span>
+            <div><div style="font-size:13px;font-weight:600">POST /api/review</div><div style="font-size:11.5px;color:var(--md-on-surface-variant)">ReviewService 将 HTTP 请求组装为 Fact 集合，驱动完整审查流水线</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /#placeholder -->
 
 </main>
 </div>
